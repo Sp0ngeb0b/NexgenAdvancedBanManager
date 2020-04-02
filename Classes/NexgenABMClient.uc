@@ -1,7 +1,7 @@
 /*##################################################################################################
 ##
-##  Nexgen Advanced Ban Manager version 1.02
-##  Copyright (C) 2013 Patrick "Sp0ngeb0b" Peltzer
+##  Nexgen Advanced Ban Manager version 1.03
+##  Copyright (C) 2019 Patrick "Sp0ngeb0b" Peltzer
 ##
 ##  This program is free software; you can redistribute and/or modify
 ##  it under the terms of the Open Unreal Mod License version 1.1.
@@ -12,11 +12,9 @@
 class NexgenABMClient extends NexgenExtendedClientController;
 
 // Admin Panel
-var NexgenABMAdminPanel ACEPanel;   // Link to the ACE Admin Panel
 var NexgenABMBanPanel banPanel;     // Link to the Ban Control Panel
 
 // Advanced player Info
-var IACECheck playerCheck;          // Link to the ACE Check actor for this client
 var string playerHWid;              // Detected Hardware ID of this client
 var string playerMAC;               // Detected MAC Hash of this client
 var string playerHostname;          // Detected Hostname of this client
@@ -27,54 +25,16 @@ var bool bBanPending;               // Whether the player was already found in b
 var int banEntry;                   // Ban entry index of this client (if banned)
 var string banReason;               // Ban entry reason of this client (if banned)
 var string banPeriod;               // Ban entry period of this client (if banned)
-var int HostnameTries;              // Amount of Hostname detection tries (every second)
-var int AceTimeOut;                 // Time in seconds the client is already waiting for his ACE info to be available
+var int hostnameTries;              // Amount of Hostname detection tries (every second)
 
 // Warning variables
 var bool bCurrentlyWarned;          // Is this client currently warned?
 var string reason;                  // Warn reason
 var string adminName;               // Admin who initiated the warning
 
-
-// ACE variables for a specifc client
-var string     PlayerName;          // Name of the player that owns this checker
-var string     PlayerIP;            // Ip of the player that owns this checker
-var string     UTCommandLine;       // Commandline of the application
-var string     UTVersion;           // UT Client version
-var string     CPUIdentifier;       // CPU Identifier string
-var string     CPUMeasuredSpeed;    // CPU Measured speed
-var string     CPUReportedSpeed;    // CPU Reported speed - trough the commandline
-var string     OSString;            // Full OS Version string
-var string     NICName;             // Full name of the primary network interface
-var string     MACHash;             // MD5 hash of the primary mac address
-var string     UTDCMacHash;         // UTDC compatible hash of the mac address
-var string     HWHash;              // MD5 hash of the hardware ID
-var string     CoreMD5;             // MD5 hash of the core.dll file
-var string     EngineMD5;           // MD5 hash of the engine.dll file
-var string     RenderMD5;           // MD5 hash of the render.dll file
-var string     GalaxyMD5;           // MD5 hash of the galaxy.dll file
-var string     WinDrvMD5;           // MD5 hash of the windrv.dll file
-var string     WindowMD5;           // MD5 hash of the window.dll file
-var string     RenderDeviceClass;   // Class of the renderdevice (eg: OpenGLDrv.OpenGLRenderDevice)
-var string     RenderDeviceFile;    // DLL file of the renderdevice
-var string     RenderDeviceMD5;     // MD5 hash of the renderdevice dll file
-var string     SoundDeviceClass;    // Class of the sounddevice (eg: OpenAL.OpenALDevice)
-var string     SoundDeviceFile;     // DLL file of the sounddevice
-var string     SoundDeviceMD5;      // MD5 hash of the sounddevice file
-var string     ACEMD5;              // MD5 hash of the ace module
-var bool       bTunnel;             // Is the user behind a UDP Proxy/Tunnel?
-var string     RealIP;              // RealIP of the player (only set if bTunnel == true)
-var bool       bWine;               // Is the client running UT using the Wine Emulator?
-
 const CMD_ABM_PREFIX = "ABM";       // Common ABM command prefix.
 const CMD_ABM_DELBAN = "DEL";       // Delete ban entry command.
 const CMD_ABM_CLR    = "CLR";       // Delete ban data command.
-
-const CMD_ACEINFO_PREFIX = "ACEINFO";  // Common ACE info command prefix.
-const CMD_ACEINFO_NEW = "ACEN";        // ACE info initiation command.
-const CMD_ACEINFO_VAR = "ACEV";        // ACE info variable command.
-const CMD_ACEINFO_COMPLETE = "ACEC";   // Command that indicates that the  ACE initialization is complete.
-
 
 /***************************************************************************************************
  *
@@ -83,13 +43,9 @@ const CMD_ACEINFO_COMPLETE = "ACEC";   // Command that indicates that the  ACE i
  **************************************************************************************************/
 replication {
 
-  reliable if (role != ROLE_SimulatedProxy) // Replicate to client...
-    ACEInfoFailed, ACEInfoRequested;
-
   reliable if (role == ROLE_SimulatedProxy) // Replicate to server...
-    removeBan, requestACEInfo, requestACEShot, SlogAdminAction, banPlayer, warnPlayer, ReadWarning;
+    removeBan, SlogAdminAction, banPlayer, warnPlayer, readWarning;
 }
-
 
 /***************************************************************************************************
  *
@@ -128,9 +84,6 @@ simulated function setupControlPanel() {
   }
   
   if (client.hasRight(client.R_Moderate)) {
-    // Spawn ACE Panel
-		ACEPanel = NexgenABMAdminPanel(client.mainWindow.mainPanel.addPanel("ACE Admin", class'NexgenABMAdminPanel', , "game"));
-
     // Since we can only modify a few existing tabs directly, we have to do a work around
     // First, locate the parent tab of the existing moderator tab
   	container = NexgenPanelContainer(client.mainWindow.mainPanel.getPanel("game"));
@@ -149,11 +102,6 @@ simulated function setupControlPanel() {
 			newPanel.setContent();
 		}
   }
-  
-  // Add config panel
-  if (client.hasRight(client.R_ServerAdmin)) {
-		client.addPluginConfigPanel(class'NexgenABMConfigPanel');
-	}
 }
 
 
@@ -162,19 +110,17 @@ simulated function setupControlPanel() {
  *  $DESCRIPTION  Timer function. Called every second.
  *                The following actions are performed:
  *                - Warning Popup
- *                - ACE info detecting (only for players)
  *                - Hostname detecting (only if ipToCountry is available)
  *
  **************************************************************************************************/
 function Timer() {
-  local string DataBack;
+  local string dataBack;
 	local string playerIP, Host;
 	local Actor IpToCountry;
 	local NexgenClientCore ncc;
 	
 	// Deactivate Timer if no longer needed
-	if(!bCurrentlyWarned && (client.bSpectator || playerHWid != "" && playerMAC != "")
-      && (playerHostname != "" || NexgenABMMain(xControl).ipToCountry == none)) {
+	if(!bCurrentlyWarned && (playerHostname != "" || NexgenABMMain(xControl).ipToCountry == none)) {
     SetTimer(0.0, false);
     return;
   }
@@ -183,46 +129,13 @@ function Timer() {
 	if(bCurrentlyWarned) {
 	  client.showPopup(string(class'NexgenABMWarnDialog'), reason, adminName);
   }
-
-  // Search for ACE Check Info
-  if(!client.bSpectator && playerCheck == none) {
-    foreach AllActors(class'IACECheck',playerCheck) {
-      if(playerCheck != none && playerCheck.PlayerID == client.player.PlayerReplicationInfo.PlayerID) break;
-      else playerCheck = none;
-    }
-  }
-
-  // Check whether the ACE info is available
-  if(playerCheck != none && (playerHWid == "" || playerMAC == "")) {
-    playerHWid = playerCheck.xxGetToken(playerCheck.HWHash, ":", 1);
-    playerMAC  = playerCheck.MACHash;
-    
-    
-    // It is, notify controller
-    if(playerHWid != "" && playerMAC != "") {
-      NexgenABMMain(xControl).ACEInfoReceived(self);
-    }
-  }
-  
-
-  // Kick player for ACE bypass attempt
-  if(NexgenABMConfig(xControl.xConf).bKickForACEBypassAttempt && !client.bSpectator &&
-     playerHWid == "" && playerMAC == "") {
-    AceTimeOut++;
-
-    if(AceTimeOut >= NexgenABMConfig(xControl.xConf).BypassDetectionTime) {
-      ncc = NexgenClientCore(client.getController(class'NexgenClientCore'.default.ctrlID));
-      if(ncc != none) ncc.kickPlayer(client.playerNum, "ACE Bypass attempt detected!");
-    }
-  }
-  
   
   // Hostname detector
-  if(NexgenABMMain(xControl).ipToCountry != none && playerHostname == "" && HostnameTries <= NexgenABMMain(xControl).HostnameTimeout) {
-    HostnameTries++;
+  if(NexgenABMMain(xControl).ipToCountry != none && playerHostname == "" && hostnameTries <= NexgenABMMain(xControl).HostnameTimeout) {
+    hostnameTries++;
     
     // Timeout detected, disable ipToCountry for the whole game
-    if (HostnameTries > NexgenABMMain(xControl).HostnameTimeout) {
+    if (hostnameTries > NexgenABMMain(xControl).HostnameTimeout) {
       NexgenABMMain(xControl).ipToCountry = none;
       NexgenABMMain(xControl).hostnameReceived(self);
       return;
@@ -232,17 +145,17 @@ function Timer() {
    	if (playerIP != "") {
    	
       // Request info
-  		DataBack = NexgenABMMain(xControl).ipToCountry.GetItemName(PlayerIP);
+  		dataBack = NexgenABMMain(xControl).ipToCountry.GetItemName(PlayerIP);
 
       // Check response
-	   	if(DataBack == "!Added to queue" || DataBack == "!Waiting in queue" || DataBack == "!Resolving now" || DataBack == "!Queue full" ) {
+	   	if(dataBack == "!Added to queue" || dataBack == "!Waiting in queue" || dataBack == "!Resolving now" || dataBack == "!Queue full" ) {
 	  		return;
   		}
 
-	  	Host = SelElem(DataBack, 2);
+	  	Host = SelElem(dataBack, 2);
 
       // Invalid response, deactivate ipToCountry for rest of the game
-  		if(Left(DataBack, 1) == "!" || Host == "") {
+  		if(Left(dataBack, 1) == "!" || Host == "") {
 	    	NexgenABMMain(xControl).ipToCountry = none;
         NexgenABMMain(xControl).hostnameReceived(self);
         return;
@@ -367,7 +280,6 @@ function banPlayer(int playerNum, byte banPeriodType, int banPeriodArgs, string 
 	xControl.control.signalEvent("player_banned", args, true);
 }
 
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Warn a specified player.
@@ -407,117 +319,7 @@ function warnPlayer(int playerNum, string reason) {
 }
 
 
-function ReadWarning(bool bRead) { bCurrentlyWarned = !bRead; }
-
-
-/***************************************************************************************************
- *
- *  $DESCRIPTION  Called on the server when the Client requests the ACE Info for a specific player.
- *  $PARAM        Num  The playerNum of the target player.
- *
- **************************************************************************************************/
-function requestACEInfo(int Num) {
-  local IACECheck A;
-  local NexgenClient target;
-  local string CommandLine;
-  local string HWID;
-
-  if(role != ROLE_Authority || !client.hasRight(client.R_Moderate)) return;
-  
-  target = control.getClientByNum(Num);
-  if(target == none) {
-    ACEInfoFailed();
-    return;
-  }
-
-  foreach AllActors(class'IACECheck',A) {
-    if(A.PlayerID == target.player.PlayerReplicationInfo.PlayerID) break;
-    else A = none;
-  }
-  if(A == none) {
-    ACEInfoFailed();
-    return;
-  } else ACEInfoRequested();
-
-  if (A.UTCommandLine == "") CommandLine = "<none>";
-  else CommandLine = A.UTCommandLine;
-
-  if (A.bWine) HWID = "N/A";
-  else HWID = A.xxGetToken(A.HWHash, ":", 1);
-
-
-  // Init command
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_NEW @ class'NexgenABMMain'.static.formatCmdArgFixed(self.class));
-
-  // Variables
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("PlayerName") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.PlayerName));
-	sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("PlayerIP") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.PlayerIP));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("UTCommandLine") @ class'NexgenABMMain'.static.formatCmdArgFixed(CommandLine));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("UTVersion") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.UTVersion));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("CPUIdentifier") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.CPUIdentifier));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("CPUMeasuredSpeed") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.CPUMeasuredSpeed));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("CPUReportedSpeed") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.CPUReportedSpeed));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("OSString") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.OSString));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("NICName") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.NICName));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("MACHash") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.MACHash));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("UTDCMacHash") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.UTDCMacHash));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("HWHash") @ class'NexgenABMMain'.static.formatCmdArgFixed(HWID));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("CoreMD5") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.CoreMD5));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("EngineMD5") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.EngineMD5));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("RenderMD5") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.RenderMD5));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("GalaxyMD5") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.GalaxyMD5));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("WinDrvMD5") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.WinDrvMD5));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("RenderDeviceClass") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.RenderDeviceClass));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("RenderDeviceFile") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.RenderDeviceFile));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("RenderDeviceMD5") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.RenderDeviceMD5));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("SoundDeviceClass") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.SoundDeviceClass));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("SoundDeviceFile") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.SoundDeviceFile));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("SoundDeviceMD5") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.SoundDeviceMD5));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("ACEMD5") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.ACEMD5));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("bTunnel") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.bTunnel));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("RealIP") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.RealIP));
-  sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_VAR @ class'NexgenABMMain'.static.formatCmdArgFixed("bWine") @ class'NexgenABMMain'.static.formatCmdArgFixed(A.bWine));
-
-	// Complete Command
-	sendStr(CMD_ACEINFO_PREFIX @ CMD_ACEINFO_COMPLETE);
-
-}
-
-
-/***************************************************************************************************
- *
- *  $DESCRIPTION  Called on the server when the Client requests the ACE Info for a specific player.
- *  $PARAM        Num  The playerNum of the target player.
- *
- **************************************************************************************************/
-function requestACEShot(int Num) {
-  local IACECheck A;
-  local NexgenClient target;
-
-  if(role != ROLE_Authority || !client.hasRight(client.R_Moderate)) return;
-  
-  target = control.getClientByNum(Num);
-  if(target == none) {
-    ACEInfoFailed();
-    return;
-  }
-
-  foreach AllActors(class'IACECheck',A) {
-    if(A.PlayerID == target.player.PlayerReplicationInfo.PlayerID) break;
-    else A = none;
-  }
-  if(A == none) {
-    client.showMsg("<C00>Screenshot failed!");
-    return;
-  }
-
-  A.CreateScreenshot(client.player);
-
-}
-
-simulated function ACEInfoFailed()    { if(ACEPanel != none) ACEPanel.ACEInfoFailed();    }
-simulated function ACEInfoRequested() { if(ACEPanel != none) ACEPanel.ACEInfoRequested(); }
-
+function readWarning(bool bRead) { bCurrentlyWarned = !bRead; }
 
 
 
@@ -540,10 +342,6 @@ function SlogAdminAction(string msg, optional coerce string str1, optional coerc
 	                       client.player.playerReplicationInfo, bNoBroadcast, bServerAdminsOnly);
 }
 
-
-
-
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Decrypting code (copied from MSuLL's HostnameBan).
@@ -564,8 +362,6 @@ function string SelElem(string Str, int Elem, optional string Char) {
 
 	return Str;
 }
-
-
 
 /***************************************************************************************************
  *
@@ -588,13 +384,7 @@ simulated function recvStr(string str) {
         case CMD_ABM_CLR:    exec_ABM_CLR(); break;
         case CMD_ABM_DELBAN: exec_ABM_DELBAN(int(args[0])); break;
       }
-    } else if (class'NexgenUtil'.static.parseCmd(str, cmd, args, argCount, CMD_ACEINFO_PREFIX)) {
-			switch (cmd) {
-				case CMD_ACEINFO_NEW:       exec_ACEINFO_NEW(args, argCount); break;
-				case CMD_ACEINFO_VAR:       exec_ACEINFO_VAR(args, argCount); break;
-				case CMD_ACEINFO_COMPLETE:  exec_ACEINFO_COMPLETE(args, argCount); break;
-			}
-		}
+    }
 	} else {
     // Commands accepted by server.
     if(class'NexgenUtil'.static.parseCmd(str, cmd, args, argCount, CMD_ABM_PREFIX)) {
@@ -605,7 +395,6 @@ simulated function recvStr(string str) {
   }
 }
 
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Called on the server when the client removed a ban via the BanPanel.
@@ -615,7 +404,6 @@ simulated function recvStr(string str) {
 function removeBan(int entryNum) {
   exec_ABM_DELBAN(entryNum);
 }
-
 
 /***************************************************************************************************
  *
@@ -667,7 +455,6 @@ simulated function exec_ABM_DELBAN(int entryNum) {
   }
 }
 
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Executes a exec_ABM_CLR command.
@@ -690,123 +477,6 @@ simulated function exec_ABM_CLR() {
     }
   }
 }
-
-
-/***************************************************************************************************
- *
- *  $DESCRIPTION  Executes a INIT_CONTAINER command.
- *  $PARAM        args      The arguments given for the command.
- *  $PARAM        argCount  Number of arguments available for the command.
- *
- **************************************************************************************************/
-simulated function exec_INIT_CONTAINER(string args[10], int argCount) {
-  if(!bInitialSyncComplete) super.exec_INIT_CONTAINER(args, argCount);
-}
-
-
-/***************************************************************************************************
- *
- *  $DESCRIPTION  Executes a INIT_CONTAINER command.
- *  $PARAM        args      The arguments given for the command.
- *  $PARAM        argCount  Number of arguments available for the command.
- *
- **************************************************************************************************/
-simulated function exec_ACEINFO_NEW(string args[10], int argCount) {
-
-  if(!client.hasRight(client.R_Moderate)) return;
-
-  // Clear results
-  PlayerName = "";
-  PlayerIP = "";
-  UTCommandLine = "";
-  UTVersion = "";
-  CPUIdentifier = "";
-  CPUMeasuredSpeed = "";
-  CPUReportedSpeed = "";
-  OSString = "";
-  NICName = "";
-  MACHash = "";
-  UTDCMacHash = "";
-  HWHash = "";
-  CoreMD5 = "";
-  EngineMD5 = "";
-  RenderMD5 = "";
-  GalaxyMD5 = "";
-  WinDrvMD5 = "";
-  WindowMD5 = "";
-  RenderDeviceClass = "";
-  RenderDeviceFile = "";
-  RenderDeviceMD5 = "";
-  SoundDeviceClass = "";
-  SoundDeviceFile = "";
-  SoundDeviceMD5 = "";
-  ACEMD5 = "";
-  bTunnel = false;
-  RealIP = "";
-  bWine = false;
-}
-
-
-/***************************************************************************************************
- *
- *  $DESCRIPTION  Executes a INIT_VAR command.
- *  $PARAM        args      The arguments given for the command.
- *  $PARAM        argCount  Number of arguments available for the command.
- *
- **************************************************************************************************/
-simulated function exec_ACEINFO_VAR(string args[10], int argCount) {
-  if(!client.hasRight(client.R_Moderate)) return;
-  switch(args[0]) {
-    case "PlayerName":        PlayerName        = args[1]; break;
-    case "PlayerIP":          PlayerIP          = args[1]; break;
-    case "UTCommandLine":     UTCommandLine     = args[1]; break;
-    case "UTVersion":         UTVersion         = args[1]; break;
-    case "CPUIdentifier":     CPUIdentifier     = args[1]; break;
-    case "CPUMeasuredSpeed":  CPUMeasuredSpeed  = args[1]; break;
-    case "CPUReportedSpeed":  CPUReportedSpeed  = args[1]; break;
-    case "OSString":          OSString          = args[1]; break;
-    case "NICName":           NICName           = args[1]; break;
-    case "MACHash":           MACHash           = args[1]; break;
-    case "UTDCMacHash":       UTDCMacHash       = args[1]; break;
-    case "HWHash":            HWHash            = args[1]; break;
-    case "CoreMD5":           CoreMD5           = args[1]; break;
-    case "EngineMD5":         EngineMD5         = args[1]; break;
-    case "RenderMD5":         RenderMD5         = args[1]; break;
-    case "GalaxyMD5":         GalaxyMD5         = args[1]; break;
-    case "WinDrvMD5":         WinDrvMD5         = args[1]; break;
-    case "RenderDeviceClass": RenderDeviceClass = args[1]; break;
-    case "RenderDeviceFile":  RenderDeviceFile  = args[1]; break;
-    case "RenderDeviceMD5":   RenderDeviceMD5   = args[1]; break;
-    case "SoundDeviceClass":  SoundDeviceClass  = args[1]; break;
-    case "SoundDeviceFile":   SoundDeviceFile   = args[1]; break;
-    case "SoundDeviceMD5":    SoundDeviceMD5    = args[1]; break;
-    case "ACEMD5":            ACEMD5            = args[1]; break;
-    case "bTunnel":           bTunnel           = bool(args[1]); break;
-    case "RealIP":            RealIP            = args[1]; break;
-    case "bWine":             bWine             = bool(args[1]); break;
-  }
-
-}
-
-
-
-/***************************************************************************************************
- *
- *  $DESCRIPTION  Executes a INIT_COMPLETE command.
- *  $PARAM        args      The arguments given for the command.
- *  $PARAM        argCount  Number of arguments available for the command.
- *
- **************************************************************************************************/
-simulated function exec_ACEINFO_COMPLETE(string args[10], int argCount) {
-
-  if(!client.hasRight(client.R_Moderate)) return;
-  
-  // Notify GUI
-  ACEPanel.ACEInfoReceived();
-
-}
-
-
 
 /***************************************************************************************************
  *
@@ -906,13 +576,11 @@ simulated function exec_UPDATE_VAR(string args[10], int argCount) {
   }
 }
 
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Default properties block.
  *
  **************************************************************************************************/
-
 defaultproperties
 {
      ctrlID="NexgenABMClient"

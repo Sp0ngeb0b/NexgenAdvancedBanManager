@@ -1,7 +1,7 @@
 /*##################################################################################################
 ##
-##  Nexgen Advanced Ban Manager version 1.02
-##  Copyright (C) 2013 Patrick "Sp0ngeb0b" Peltzer
+##  Nexgen Advanced Ban Manager version 1.03
+##  Copyright (C) 2019 Patrick "Sp0ngeb0b" Peltzer
 ##
 ##  This program is free software; you can redistribute and/or modify
 ##  it under the terms of the Open Unreal Mod License version 1.1.
@@ -21,23 +21,13 @@ var config string bannedHostnames[256];           // Hostnames(s) of the banned 
 var config string banReason[256];                 // Reason why the player was banned.
 var config string banPeriod[256];                 // Duration string of the ban entry.
 
-// New in 1.02
-var config bool bKickForACEBypassAttempt;
-var config int BypassDetectionTime;
-
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Automatically installs the plugin.
  *  $ENSURE       lastInstalledVersion >= xControl.versionNum
  *
  **************************************************************************************************/
-function install() {
-
-	if (lastInstalledVersion < xControl.versionNum) {
-    install102();
-	}
-	
+function install() {	
 	lastInstalledVersion = xControl.versionNum;
 	
 	// Transfer old ban entries
@@ -54,18 +44,6 @@ function install() {
 	// Save updated config or create new one
 	saveconfig();
 }
-
-
-/***************************************************************************************************
- *
- *  $DESCRIPTION  Initializes the new variables introduced in version 1.02
- *
- **************************************************************************************************/
-function install102() {
-  bKickForACEBypassAttempt = False;
-  BypassDetectionTime = 30;
-}
-
 
 /***************************************************************************************************
  *
@@ -90,8 +68,6 @@ function bool cleanExpiredBans() {
 	// Return result.
 	return bBanDeleted;
 }
-
-
 
 /***************************************************************************************************
  *
@@ -133,8 +109,6 @@ function removeBan(int entryNum, bool bForced) {
 
 }
 
-
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Updates the ban period strings. Note this function should only be called once
@@ -158,7 +132,6 @@ function updateBanPeriods() {
 		currBan++;
 	}
 }
-
 
 /***************************************************************************************************
  *

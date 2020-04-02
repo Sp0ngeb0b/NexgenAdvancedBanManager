@@ -1,6 +1,6 @@
 /*##################################################################################################
 ##
-##  Nexgen Advanced Ban Manager version 1.02
+##  Nexgen Advanced Ban Manager version 1.03
 ##  Copyright (C) 2013 Patrick "Sp0ngeb0b" Peltzer
 ##
 ##  This program is free software; you can redistribute and/or modify
@@ -12,19 +12,25 @@
 /*##################################################################################################
 ##  Changelog:
 ##
+##  Version 1.03:
+##  [Removed] Bypass detection  
+##  [Changed] Spectators are supported if feature is enabled in ACE
+##
 ##  Version 1.02:
-##  [Fix]   RequestInfo and TakeScreenshot buttons mistakenly disabled for green, gold and teamless
-##          players
-##  [Fix]   Critical bug in use with Bots
-##  [Added] Feature to detect ACE bypass attempts and kick the respective player
+##  [Fix]     RequestInfo and TakeScreenshot buttons mistakenly disabled for green, gold and teamless
+##            players
+##  [Fix]     Critical bug in use with Bots
+##  [Added]   Feature to detect ACE bypass attempts and kick the respective player
 ##
 ##  Hotfix  1.01:
-##  [Fix]   Sometimes players were erroneously considered as banned
+##  [Fix]     Sometimes players were erroneously considered as banned
 ##
 ##################################################################################################*/
 class NexgenABMMain extends NexgenExtendedPlugin;
 
 var Actor ipToCountry;                 // IpToCountry Actor (if available)
+
+var byte ACEStatus;                    // 0=Not presend, 1=Checking Players, 2=Checking Players+Spectators
 
 const separator = ",";                 // global separator
 const HostnameTimeout = 10;            // Time in seconds before giving up on Hostname detection
@@ -44,14 +50,12 @@ function bool initialize() {
 	if (!super.initialize()) {
 		return false;
 	}
-	
+
   // Locate IpToCountry
-	ForEach Level.AllActors(class'Actor', ipToCountry, 'IpToCountry') break;
+	ForEach Level.AllActors(class'Actor', ipToCountry, 'IpToCountry') break;  
 
 	return true;
 }
-
-
 
 /***************************************************************************************************
  *
@@ -68,9 +72,8 @@ function clientCreated(NexgenClient client) {
 	xClient = NexgenExtendedClientController(client.addController(clientControllerClass, self));
 	xClient.dataSyncMgr = dataSyncMgr;
 	xClient.xControl = self;
-	if(!client.bSpectator || ipToCountry != none) xClient.setTimer(1.0, true);
+	if(ipToCountry != none) xClient.setTimer(1.0, true);
 }
-
 
 /***************************************************************************************************
  *
@@ -81,10 +84,8 @@ function clientCreated(NexgenClient client) {
  *
  **************************************************************************************************/
 function createSharedDataContainers() {
-  dataSyncMgr.addDataContainer(class'NexgenABMConfigDC');
 	dataSyncMgr.addDataContainer(class'NexgenABMBanListDC');
 }
-
 
 /***************************************************************************************************
  *
@@ -102,7 +103,7 @@ function bool checkLogin(NexgenClient client, out name rejectType, out string re
 
   if(xClient != none && isBanned(xClient)) {
     if(control.sConf.autoUpdateBans) {
-      if(!client.bSpectator || client.bSpectator && ipToCountry != none) {
+      if( ACEStatus == 2 || (ACEStatus == 1 && !client.bSpectator) || ipToCountry != none) {
         xClient.bBanPending = True;
         return true;
       } else updateBan(xClient.banEntry, xClient.client.ipAddress, xClient.client.playerID, "", "", "");
@@ -116,43 +117,36 @@ function bool checkLogin(NexgenClient client, out name rejectType, out string re
   }
   
   return true;
-
 }
-
-
 
 /***************************************************************************************************
  *
- *  $DESCRIPTION  Called when the value of a shared variable has been updated.
- *  $PARAM        container  Shared data container that contains the updated variable.
- *  $PARAM        varName    Name of the variable that was updated.
- *  $PARAM        index      Element index of the array variable that was changed.
- *  $REQUIRE      container != none && varName != "" && index >= 0
- *  $PARAM        author           Object that was responsible for the change.
- *  $OVERRIDE
+ *  $DESCRIPTION  Called when a general event has occurred in the system.
+ *  $PARAM        type      The type of event that has occurred.
+ *  $PARAM        argument  Optional arguments providing details about the event.
  *
  **************************************************************************************************/
-function varChanged(NexgenSharedDataContainer container, string varName, optional int index, optional Object author) {
-	local NexgenClient client;
+function notifyEvent(string type, optional string arguments) {
+  local NexgenClient client;
+  local NexgenABMClient xClient;
+  
+  // Listen for ACE settings
+  if(type == "ace_config") {
+    if(bool(class'NexgenUtil'.static.getProperty(arguments, "bCheckSpectators"))) ACEStatus = 2;
+    else ACEStatus = 1;
+  }
 
-	// Log admin actions.
-	if (author != none && (author.isA('NexgenClient') || author.isA('NexgenClientController')) &&
-      container.containerID ~= class'NexgenABMConfigDC'.default.containerID) {
-      
-		// Get client.
-		if (author.isA('NexgenClientController')) {
-			client = NexgenClientController(author).client;
-		} else {
-			client = NexgenClient(author);
-		}
-		// Log action.
-		control.logAdminAction(client, "<C07>%1 has set %2.%3 to \"%4\".", client.playerName,
-			                     string(xConf.class), varName, container.getString(varName),
-			                     client.player.playerReplicationInfo, true, false);
-	}
+  // Player ACE Info available
+  if(type == "ace_login") {
+    client = control.getClientByNum(int(class'NexgenUtil'.static.getProperty(arguments, "client")));
+    xClient = NexgenABMClient(getXClient(client));
+    if(xClient != none) {
+      xClient.playerHWid = class'NexgenUtil'.static.getProperty(arguments, "HWid");
+      xClient.playerMAC  = class'NexgenUtil'.static.getProperty(arguments, "MAC");
+      ACEInfoReceived(xClient);
+    }
+  }
 }
-
-
 
 /***************************************************************************************************
  *
@@ -162,15 +156,8 @@ function varChanged(NexgenSharedDataContainer container, string varName, optiona
  *
  **************************************************************************************************/
 function ACEInfoReceived(NexgenABMClient xClient) {
-  local string args;
 
 	if(xClient == none) return;
-
-  // Signal event.
-	class'NexgenUtil'.static.addProperty(args, "client", xClient.client.playerNum);
-	class'NexgenUtil'.static.addProperty(args, "HWid",   xClient.playerHWid);
-	class'NexgenUtil'.static.addProperty(args, "MAC",   xClient.playerMAC);
-	control.signalEvent("ace_login", args, true);
 
   // Client already failed our previous checks?
   if(xClient.bBanPending) {
@@ -187,14 +174,13 @@ function ACEInfoReceived(NexgenABMClient xClient) {
       if(control.sConf.autoUpdateBans) {
         if(xClient.playerHostname != "" || ipToCountry == none) {
           updateBan(xClient.banEntry, xClient.client.ipAddress, xClient.client.playerID, xClient.playerHWid,
-                    xClient.playerMAC, xClient.playerHostname);
+                    xClient.playerMAC, xClient.playerHostname);                                                                                                                                                                                                                                                          
           banPlayer(xClient);
         } else xClient.bBanPending = True;
       } else banPlayer(xClient);
     }
   }
 }
-
 
 /***************************************************************************************************
  *
@@ -212,12 +198,11 @@ function hostnameReceived(NexgenABMClient xClient) {
 	class'NexgenUtil'.static.addProperty(args, "client", xClient.client.playerNum);
 	class'NexgenUtil'.static.addProperty(args, "hostname", xClient.playerHostname);
 	control.signalEvent("player_hostname", args, true);
-
   
   // Client already failed our previous checks?
   if(xClient.bBanPending) {
     // All necessary Info available?
-    if(xClient.client.bSpectator || xClient.playerHWid != "" && xClient.playerMAC != "") {
+    if( ACEStatus == 0 || (ACEStatus == 1 && xClient.client.bSpectator) || (xClient.playerHWid != "" && xClient.playerMAC != "")) {
       // Yes. Update entry and ban player.
       updateBan(xClient.banEntry, xClient.client.ipAddress, xClient.client.playerID, xClient.playerHWid,
                 xClient.playerMAC, xClient.playerHostname);
@@ -227,7 +212,7 @@ function hostnameReceived(NexgenABMClient xClient) {
     // Check login for this client
     if(isBanned(xClient, xClient.playerHWid, xClient.playerMAC, xClient.playerHostname)) {
       if(control.sConf.autoUpdateBans) {
-        if(!xClient.client.bSpectator &&  xClient.playerHWid != "" && xClient.playerMAC != "") {
+        if( (ACEStatus == 2 || (ACEStatus == 1 && !xClient.client.bSpectator)) && xClient.playerHWid != "" && xClient.playerMAC != "") {
           updateBan(xClient.banEntry, xClient.client.ipAddress, xClient.client.playerID, xClient.playerHWid,
                     xClient.playerMAC, xClient.playerHostname);
           banPlayer(xClient);
@@ -236,8 +221,6 @@ function hostnameReceived(NexgenABMClient xClient) {
     }
   }
 }
-
-
 
 /***************************************************************************************************
  *
@@ -261,7 +244,6 @@ function banPlayer(NexgenABMClient xClient) {
 	control.disconnectClient(xClient.client);
 	control.nscLog(control.lng.format(control.lng.loginRejectedMsg, control.lng.bannedMsg));
 }
-
 
 /***************************************************************************************************
  *
@@ -294,8 +276,6 @@ function bool isBanned(NexgenABMClient xClient, optional string HWid, optional s
 	return bBanned;
 }
 
-
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Returns the index in the ban list for the given player info.
@@ -314,7 +294,6 @@ function int getBanIndex(string playerIP, string playerID, string HWid, string M
 	local int index;
 	local bool bFound, bIPMatch, bIDMatch, bHWidMatch, bMACMatch, bHNMatch;
 
-
 	// Lookup player in the ban list.
 	while (!bFound && index < arrayCount(NexgenABMConfig(xConf).bannedName) && NexgenABMConfig(xConf).bannedName[index] != "") {
     if(playerIP != "" && NexgenABMConfig(xConf).bannedIPs[index] != "")       bIPMatch   = checkMasksString(NexgenABMConfig(xConf).bannedIPs[index], playerIP);
@@ -331,7 +310,6 @@ function int getBanIndex(string playerIP, string playerID, string HWid, string M
 			// Nope, maybe next.
 			index++;
 		}
-
 	}
 
 	// Return index in the ban list.
@@ -341,8 +319,6 @@ function int getBanIndex(string playerIP, string playerID, string HWid, string M
 		return -1;
 	}
 }
-
-
 
 /***************************************************************************************************
  *
@@ -477,8 +453,6 @@ function bool updateBan(int index, string playerIP, string playerID, string play
 	}
 }
 
-
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Checks whether the specified ban entry has expired.
@@ -522,9 +496,6 @@ function bool isExpiredBan(int index) {
 	return bExpired;
 }
 
-
-
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Compares a string with multiple masks.
@@ -548,8 +519,6 @@ function bool checkMasksString(string masksString, string target) {
 
    return bFound;
 }
-
-
 
 /***************************************************************************************************
  *
@@ -594,8 +563,6 @@ static final function bool _match(string mask, string target) {
   while (Left(mask, 1) == "*") mask = Mid(Mask, 1);
   return (mask == "");
 }
-
-
 
 /***************************************************************************************************
  *
@@ -651,8 +618,6 @@ function setFixed(string dataContainerID, string varName, coerce string value, o
 	}
 }
 
-
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Corrected version of the static formatCmdArg function in NexgenUtil. Empty strings
@@ -683,7 +648,6 @@ static function string formatCmdArgFixed(coerce string arg) {
 	return result;
 }
 
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Default properties block.
@@ -692,11 +656,11 @@ static function string formatCmdArgFixed(coerce string arg) {
 
 defaultproperties
 {
-     versionNum=102
-     extConfigClass=Class'NexgenABM102.NexgenABMConfigExt'
-     sysConfigClass=Class'NexgenABM102.NexgenABMConfigSys'
-     clientControllerClass=Class'NexgenABM102.NexgenABMClient'
+     versionNum=200
+     extConfigClass=Class'NexgenABMConfigExt'
+     sysConfigClass=Class'NexgenABMConfigSys'
+     clientControllerClass=Class'NexgenABMClient'
      pluginName="Nexgen Advanced Ban Manager"
      pluginAuthor="Sp0ngeb0b"
-     pluginVersion="1.02"
+     pluginVersion="2.00"
 }
