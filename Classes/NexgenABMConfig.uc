@@ -20,6 +20,7 @@ var config string bannedMACHashes[256];           // MAC Hash(es) of the banned 
 var config string bannedHostnames[256];           // Hostnames(s) of the banned player.
 var config string banReason[256];                 // Reason why the player was banned.
 var config string banPeriod[256];                 // Duration string of the ban entry.
+var config string bannerName[256];                // Account name of the Admin
 
 /***************************************************************************************************
  *
@@ -27,22 +28,22 @@ var config string banPeriod[256];                 // Duration string of the ban 
  *  $ENSURE       lastInstalledVersion >= xControl.versionNum
  *
  **************************************************************************************************/
-function install() {	
-	lastInstalledVersion = xControl.versionNum;
-	
-	// Transfer old ban entries
-	if(xControl.control.sConf.bannedName[0] != "" && bannedName[0] == "") copyOldBans();
+function install() {  
+  lastInstalledVersion = xControl.versionNum;
+  
+  // Transfer old ban entries
+  if(xControl.control.sConf.bannedName[0] != "" && bannedName[0] == "") copyOldBans();
 
-	// Remove expired bans if desired.
-	if (xControl.control.sConf.removeExpiredBans) {
-		cleanExpiredBans();
-	}
+  // Remove expired bans if desired.
+  if (xControl.control.sConf.removeExpiredBans) {
+    cleanExpiredBans();
+  }
 
-	// Update ban periods.
-	updateBanPeriods();
+  // Update ban periods.
+  updateBanPeriods();
 
-	// Save updated config or create new one
-	saveconfig();
+  // Save updated config or create new one
+  saveconfig();
 }
 
 /***************************************************************************************************
@@ -52,21 +53,21 @@ function install() {
  *
  **************************************************************************************************/
 function bool cleanExpiredBans() {
-	local int currBan;
-	local bool bBanDeleted;
+  local int currBan;
+  local bool bBanDeleted;
 
-	// Check each ban entry.
-	while (currBan < arrayCount(bannedName) && bannedName[currBan] != "") {
-		if (NexgenABMMain(xControl).isExpiredBan(currBan)) {
-			removeBan(currBan, false);
-			bBanDeleted = true;
-		} else {
-			currBan++;
-		}
-	}
+  // Check each ban entry.
+  while (currBan < arrayCount(bannedName) && bannedName[currBan] != "") {
+    if (NexgenABMMain(xControl).isExpiredBan(currBan)) {
+      removeBan(currBan, false);
+      bBanDeleted = true;
+    } else {
+      currBan++;
+    }
+  }
 
-	// Return result.
-	return bBanDeleted;
+  // Return result.
+  return bBanDeleted;
 }
 
 /***************************************************************************************************
@@ -79,33 +80,35 @@ function bool cleanExpiredBans() {
  *
  **************************************************************************************************/
 function removeBan(int entryNum, bool bForced) {
-	local int index;
+  local int index;
 
-	for (index = entryNum; index < arrayCount(bannedName); index++) {
-		// Last entry?
-		if (index + 1 == arrayCount(bannedName)) {
-			// Yes, clear fields.
-			bannedName[index]       = "";
-			bannedIPs[index]        = "";
-			bannedIDs[index]        = "";
-			bannedHWIDs[index]      = "";
-			bannedMACHashes[index]  = "";
-			bannedHostnames[index]  = "";
-			banReason[index]        = "";
-			banPeriod[index]        = "";
-		} else {
-			// No, copy fields from next entry.
-			bannedName[index]      = bannedName[index + 1];
-			bannedIPs[index]       = bannedIPs[index + 1];
-			bannedIDs[index]       = bannedIDs[index + 1];
-			bannedHWIDs[index]     = bannedHWIDs[index + 1];
-			bannedMACHashes[index] = bannedMACHashes[index + 1];
-			bannedHostnames[index] = bannedHostnames[index + 1];
-			banReason[index]       = banReason[index + 1];
-		  banPeriod[index]       = banPeriod[index + 1];
-		}
-	}
-	if(bForced) saveconfig();
+  for (index = entryNum; index < arrayCount(bannedName); index++) {
+    // Last entry?
+    if (index + 1 == arrayCount(bannedName)) {
+      // Yes, clear fields.
+      bannedName[index]       = "";
+      bannedIPs[index]        = "";
+      bannedIDs[index]        = "";
+      bannedHWIDs[index]      = "";
+      bannedMACHashes[index]  = "";
+      bannedHostnames[index]  = "";
+      banReason[index]        = "";
+      banPeriod[index]        = "";
+      bannerName[index]       = "";
+    } else {
+      // No, copy fields from next entry.
+      bannedName[index]      = bannedName[index + 1];
+      bannedIPs[index]       = bannedIPs[index + 1];
+      bannedIDs[index]       = bannedIDs[index + 1];
+      bannedHWIDs[index]     = bannedHWIDs[index + 1];
+      bannedMACHashes[index] = bannedMACHashes[index + 1];
+      bannedHostnames[index] = bannedHostnames[index + 1];
+      banReason[index]       = banReason[index + 1];
+      banPeriod[index]       = banPeriod[index + 1];
+      bannerName[index]      = bannerName[index + 1];
+    }
+  }
+  if(bForced) saveconfig();
 
 }
 
@@ -117,20 +120,20 @@ function removeBan(int entryNum, bool bForced) {
  *
  **************************************************************************************************/
 function updateBanPeriods() {
-	local int currBan;
-	local byte banPeriodType;
-	local string banPeriodArgs;
+  local int currBan;
+  local byte banPeriodType;
+  local string banPeriodArgs;
 
-	// Check each ban entry.
-	while (currBan < arrayCount(bannedName) && bannedName[currBan] != "") {
-		class'NexgenConfig'.static.getBanPeriodType(banPeriod[currBan], banPeriodType, banPeriodArgs);
+  // Check each ban entry.
+  while (currBan < arrayCount(bannedName) && bannedName[currBan] != "") {
+    class'NexgenConfig'.static.getBanPeriodType(banPeriod[currBan], banPeriodType, banPeriodArgs);
 
-		if (banPeriodType == xControl.control.sConf.BP_Matches) {
-			banPeriod[currBan] = "M" $ max(0, int(banPeriodArgs) - 1);
-		}
+    if (banPeriodType == xControl.control.sConf.BP_Matches) {
+      banPeriod[currBan] = "M" $ max(0, int(banPeriodArgs) - 1);
+    }
 
-		currBan++;
-	}
+    currBan++;
+  }
 }
 
 /***************************************************************************************************

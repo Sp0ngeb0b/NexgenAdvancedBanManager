@@ -26,6 +26,7 @@ var int banEntry;                   // Ban entry index of this client (if banned
 var string banReason;               // Ban entry reason of this client (if banned)
 var string banPeriod;               // Ban entry period of this client (if banned)
 var int hostnameTries;              // Amount of Hostname detection tries (every second)
+var string accountName;             // Replicated to the client side
 
 // Warning variables
 var bool bCurrentlyWarned;          // Is this client currently warned?
@@ -42,6 +43,8 @@ const CMD_ABM_CLR    = "CLR";       // Delete ban data command.
  *
  **************************************************************************************************/
 replication {
+  reliable if (role != ROLE_SimulatedProxy) // Replicate to client...
+    accountName;
 
   reliable if (role == ROLE_SimulatedProxy) // Replicate to server...
     removeBan, SlogAdminAction, banPlayer, warnPlayer, readWarning;
@@ -62,48 +65,60 @@ simulated function setupControlPanel() {
 
     // Since we can only modify a few existing tabs directly, we have to do a work around
     // First, locate the parent tab of the existing BanControl tab
-  	container = NexgenPanelContainer(client.mainWindow.mainPanel.getPanel("server"));
+    container = NexgenPanelContainer(client.mainWindow.mainPanel.getPanel("server"));
 
-  	// Delete the tab
-  	if(container != none) {
-	    container.pages.DeleteTab(container.pages.GetTab(client.lng.banControlTabTxt));
+    // Delete the tab
+    if(container != none) {
+      container.pages.DeleteTab(container.pages.GetTab(client.lng.banControlTabTxt));
     }
     
     // Spawn the new ScrollPanelContainer and insert it before the accounts tab
     pageControl = container.pages.InsertPage(container.pages.GetPage(client.lng.accountsTabTxt), client.lng.banControlTabTxt, class'NexgenScrollPanelContainer');
     if (pageControl != none) {
-			newPanel = NexgenPanel(pageControl.page);
-			newPanel.panelIdentifier = "abmBanControl";
-			newPanel.client = self.client;
-			newPanel.setContent();
-			
-			// Spawn the actual content page
-			banPanel = NexgenABMBanPanel(client.mainWindow.mainPanel.addPanel("", class'NexgenABMBanPanel', , "server,abmBanControl"));
-		}
+      newPanel = NexgenPanel(pageControl.page);
+      newPanel.panelIdentifier = "abmBanControl";
+      newPanel.client = self.client;
+      newPanel.setContent();
+      
+      // Spawn the actual content page
+      banPanel = NexgenABMBanPanel(client.mainWindow.mainPanel.addPanel("", class'NexgenABMBanPanel', , "server,abmBanControl"));
+    }
 
   }
   
   if (client.hasRight(client.R_Moderate)) {
     // Since we can only modify a few existing tabs directly, we have to do a work around
     // First, locate the parent tab of the existing moderator tab
-  	container = NexgenPanelContainer(client.mainWindow.mainPanel.getPanel("game"));
+    container = NexgenPanelContainer(client.mainWindow.mainPanel.getPanel("game"));
 
-  	// Delete the tab
-  	if(container != none) {
-	    container.pages.DeleteTab(container.pages.GetTab(client.lng.moderatorTabTxt));
+    // Delete the tab
+    if(container != none) {
+      container.pages.DeleteTab(container.pages.GetTab(client.lng.moderatorTabTxt));
     }
 
     // Spawn our modfied moderator tab and insert it before the match controller tab
     pageControl = container.pages.InsertPage(container.pages.GetPage(client.lng.matchControlTabTxt), client.lng.moderatorTabTxt, class'NexgenABMModeratePanel');
 
     if (pageControl != none) {
-			newPanel = NexgenPanel(pageControl.page);
-			newPanel.client = self.client;
-			newPanel.setContent();
-		}
+      newPanel = NexgenPanel(pageControl.page);
+      newPanel.client = self.client;
+      newPanel.setContent();
+    }
   }
 }
 
+/***************************************************************************************************
+ *
+ *  $DESCRIPTION  Retrieves the account name for this client.
+ *
+ **************************************************************************************************/
+function getAccountTitle() {
+  local int index;
+  
+  index = control.sConf.getUserAccountIndex(client.playerID);
+  if(index != -1 && control.sConf.paPlayerName[index] != "") accountName = control.sConf.paPlayerName[index];
+  else                                                       accountName = client.playerName;
+}
 
 /***************************************************************************************************
  *
@@ -115,19 +130,19 @@ simulated function setupControlPanel() {
  **************************************************************************************************/
 function Timer() {
   local string dataBack;
-	local string playerIP, Host;
-	local Actor IpToCountry;
-	local NexgenClientCore ncc;
-	
-	// Deactivate Timer if no longer needed
-	if(!bCurrentlyWarned && (playerHostname != "" || NexgenABMMain(xControl).ipToCountry == none)) {
+  local string playerIP, Host;
+  local Actor IpToCountry;
+  local NexgenClientCore ncc;
+  
+  // Deactivate Timer if no longer needed
+  if(!bCurrentlyWarned && (playerHostname != "" || NexgenABMMain(xControl).ipToCountry == none)) {
     SetTimer(0.0, false);
     return;
   }
-	
-	// Implemented from NexgenWarn
-	if(bCurrentlyWarned) {
-	  client.showPopup(string(class'NexgenABMWarnDialog'), reason, adminName);
+  
+  // Implemented from NexgenWarn
+  if(bCurrentlyWarned) {
+    client.showPopup(string(class'NexgenABMWarnDialog'), reason, adminName);
   }
   
   // Hostname detector
@@ -142,28 +157,28 @@ function Timer() {
     }
     
     playerIP = client.ipAddress;
-   	if (playerIP != "") {
-   	
+    if (playerIP != "") {
+    
       // Request info
-  		dataBack = NexgenABMMain(xControl).ipToCountry.GetItemName(PlayerIP);
+      dataBack = NexgenABMMain(xControl).ipToCountry.GetItemName(PlayerIP);
 
       // Check response
-	   	if(dataBack == "!Added to queue" || dataBack == "!Waiting in queue" || dataBack == "!Resolving now" || dataBack == "!Queue full" ) {
-	  		return;
-  		}
+      if(dataBack == "!Added to queue" || dataBack == "!Waiting in queue" || dataBack == "!Resolving now" || dataBack == "!Queue full" ) {
+        return;
+      }
 
-	  	Host = SelElem(dataBack, 2);
+      Host = SelElem(dataBack, 2);
 
       // Invalid response, deactivate ipToCountry for rest of the game
-  		if(Left(dataBack, 1) == "!" || Host == "") {
-	    	NexgenABMMain(xControl).ipToCountry = none;
+      if(Left(dataBack, 1) == "!" || Host == "") {
+        NexgenABMMain(xControl).ipToCountry = none;
         NexgenABMMain(xControl).hostnameReceived(self);
         return;
-  		}
+      }
 
       playerHostname = Host;
       NexgenABMMain(xControl).hostnameReceived(self);
-  	}
+    }
   }
 }
 
@@ -180,104 +195,109 @@ function Timer() {
  *  $PARAM        reason         Description of why the player was banned.
  *
  **************************************************************************************************/
-function banPlayer(int playerNum, byte banPeriodType, int banPeriodArgs, string reason) {
+function banPlayer(int playerNum, byte banPeriodType, int banPeriodArgs, string reason, bool hideAdminName) {
   local NexgenClient ntarget;
   local NexgenABMClient target;
-	local string banPeriod;
-	local string banPeriodDesc;
-	local int year, month, day, hour, minute;
-	local int entryNum;
-	local bool bFound;
-	local bool bHasExistingBanEntry;
-	local string args;
+  local string banPeriod;
+  local string banPeriodDesc, popupPeriodDesc;
+  local int year, month, day, hour, minute;
+  local int entryNum;
+  local bool bFound;
+  local bool bHasExistingBanEntry;
+  local string args;
+  
+  // Preliminary checks.
+  if (!client.hasRight(client.R_Moderate) || !client.hasRight(client.R_BanOperator)) {
+    return;
+  }
 
-	// Preliminary checks.
-	if (!client.hasRight(client.R_Moderate) || !client.hasRight(client.R_BanOperator)) {
-		return;
-	}
+  // Get target client.
+  ntarget = xControl.control.getClientByNum(playerNum);
+  if (ntarget == none) return;
+  target = NexgenABMClient(xControl.getXClient(ntarget));
+  if (target == none) return;
 
-	// Get target client.
-	ntarget = xControl.control.getClientByNum(playerNum);
-	if (ntarget == none) return;
-	target = NexgenABMClient(xControl.getXClient(ntarget));
-	if (target == none) return;
+  // Check if player can kick/ban players that have an account on the server.
+  if (ntarget.bHasAccount && !client.hasRight(client.R_BanAccounts)) {
+    client.showMsg(control.lng.noBanAccountRightMsg);
+    return;
+  }
 
-	// Check if player can kick/ban players that have an account on the server.
-	if (ntarget.bHasAccount && !client.hasRight(client.R_BanAccounts)) {
-		client.showMsg(control.lng.noBanAccountRightMsg);
-		return;
-	}
+  // Get ban period.
+  if (banPeriodType == xControl.control.sConf.BP_Matches) {
+    banPeriod = "M" $ max(1, banPeriodArgs);
+  } else if (banPeriodType == xControl.control.sConf.BP_UntilDate) {
+    year = level.year;
+    month = level.month;
+    day = level.day;
+    hour = level.hour;
+    minute = level.minute;
+    class'NexgenUtil'.static.computeDate(max(1, banPeriodArgs), year, month, day);
+    banPeriod = "U" $ class'NexgenUtil'.static.serializeDate(year, month, day, hour, minute);
+  }
+  banPeriodDesc = xControl.control.lng.getBanPeriodDescription(banPeriod);
 
-	// Get ban period.
-	if (banPeriodType == xControl.control.sConf.BP_Matches) {
-		banPeriod = "M" $ max(1, banPeriodArgs);
-	} else if (banPeriodType == xControl.control.sConf.BP_UntilDate) {
-		year = level.year;
-		month = level.month;
-		day = level.day;
-		hour = level.hour;
-		minute = level.minute;
-		class'NexgenUtil'.static.computeDate(max(1, banPeriodArgs), year, month, day);
-		banPeriod = "U" $ class'NexgenUtil'.static.serializeDate(year, month, day, hour, minute);
-	}
-	banPeriodDesc = xControl.control.lng.getBanPeriodDescription(banPeriod);
+  // Kick player from the server.
+  popupPeriodDesc = banPeriodDesc;
+  if(!hideAdminName) popupPeriodDesc = popupPeriodDesc$" (banned by "$accountName$")";
+  ntarget.showPopup("NexgenJustBannedDialog", reason, popupPeriodDesc);
+  ntarget.player.destroy();
 
-	// Kick player from the server.
-	ntarget.showPopup("NexgenJustBannedDialog", reason, banPeriodDesc);
-	ntarget.player.destroy();
+  // Announce event.
+  logAdminAction(xControl.control.lng.adminBanPlayerMsg, ntarget.playerName, , , , hideAdminName);
+  if(hideAdminName) logAdminAction("<C07>"$ntarget.playerName$" has been banned from the server.");
+  
+  // Check if player already has an entry in the banlist.
+  entryNum = NexgenABMMain(xControl).getBanIndex(ntarget.ipAddress, ntarget.playerID, target.playerHWid,
+                                                 target.playerMAC, target.playerHostname);
+  if (entryNum >= 0) {
+    bFound = true;
+    bHasExistingBanEntry = true;
+  } else {
+    entryNum = 0;
+  }
 
-	// Announce event.
-	logAdminAction(xControl.control.lng.adminBanPlayerMsg, ntarget.playerName);
+  // Find a free slot in the ban list.
+  while (!bFound && entryNum < arrayCount(NexgenABMConfig(xControl.xConf).bannedName)) {
+    if (NexgenABMConfig(xControl.xConf).bannedName[entryNum] == "") {
+      bFound = true;
+    } else {
+      entryNum++;
+    }
+  }
 
-	// Check if player already has an entry in the banlist.
-	entryNum = NexgenABMMain(xControl).getBanIndex(ntarget.ipAddress, ntarget.playerID, target.playerHWid,
-                                  target.playerMAC, target.playerHostname);
-	if (entryNum >= 0) {
-		bFound = true;
-		bHasExistingBanEntry = true;
-	} else {
-		entryNum = 0;
-	}
+  // Cancel on error.
+  if (!bFound) {
+    return;
+  }
 
-	// Find a free slot in the ban list.
-	while (!bFound && entryNum < arrayCount(NexgenABMConfig(xControl.xConf).bannedName)) {
-		if (NexgenABMConfig(xControl.xConf).bannedName[entryNum] == "") {
-			bFound = true;
-		} else {
-			entryNum++;
-		}
-	}
-
-	// Cancel on error.
-	if (!bFound) {
-		return;
-	}
-
-	// Store ban.
-	NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedName", ntarget.playerName, entryNum, self);
-	if (bHasExistingBanEntry) {
-		NexgenABMMain(xControl).updateBan(entryNum, ntarget.ipAddress, ntarget.playerID, target.playerHWid,
+  // Store ban.
+  NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedName", ntarget.playerName, entryNum, self);
+  if (bHasExistingBanEntry) {
+    NexgenABMMain(xControl).updateBan(entryNum, ntarget.ipAddress, ntarget.playerID, target.playerHWid,
                                       target.playerMAC, target.playerHostname);
-	} else {
-  	NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedIPs", ntarget.ipAddress, entryNum, self);
-  	NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedIDs", ntarget.playerID, entryNum, self);
-  	NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedHWIDs", target.playerHWid, entryNum, self);
-  	NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedMACHashes", target.playerMAC, entryNum, self);
-  	NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedHostnames", target.playerHostname, entryNum, self);
-	}
-	NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "banReason", reason, entryNum, self);
+  } else {
+    NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedIPs", ntarget.ipAddress, entryNum, self);
+    NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedIDs", ntarget.playerID, entryNum, self);
+    NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedHWIDs", target.playerHWid, entryNum, self);
+    NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedMACHashes", target.playerMAC, entryNum, self);
+    NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannedHostnames", target.playerHostname, entryNum, self);
+  }
+  NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "banReason", reason, entryNum, self);
   NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "banPeriod", banPeriod, entryNum, self);
+  NexgenABMMain(xControl).setFixed(class'NexgenABMBanListDC'.default.containerID, "bannerName", accountName, entryNum, self);
 
-	// Save changes.
+  // Save changes.
   dataSyncMgr.saveSharedData(class'NexgenABMBanListDC'.default.containerID);
 
-	// Signal event.
-	class'NexgenUtil'.static.addProperty(args, "client", client.playerNum);
-	class'NexgenUtil'.static.addProperty(args, "target", ntarget.playerNum);
-	class'NexgenUtil'.static.addProperty(args, "period", banPeriodDesc);
-	class'NexgenUtil'.static.addProperty(args, "reason", reason);
-	class'NexgenUtil'.static.addProperty(args, "ban_index", entryNum);
-	xControl.control.signalEvent("player_banned", args, true);
+  // Signal event.
+  class'NexgenUtil'.static.addProperty(args, "client", client.playerNum);
+  class'NexgenUtil'.static.addProperty(args, "target", ntarget.playerNum);
+  class'NexgenUtil'.static.addProperty(args, "period", banPeriodDesc);
+  class'NexgenUtil'.static.addProperty(args, "reason", reason);
+  class'NexgenUtil'.static.addProperty(args, "ban_index", entryNum);
+  class'NexgenUtil'.static.addProperty(args, "banner_name", accountName);
+  xControl.control.signalEvent("player_banned", args, true);
 }
 
 /***************************************************************************************************
@@ -287,41 +307,42 @@ function banPlayer(int playerNum, byte banPeriodType, int banPeriodArgs, string 
  *  $PARAM        reason The warn reason.
  *
  **************************************************************************************************/
-function warnPlayer(int playerNum, string reason) {
+function warnPlayer(int playerNum, string reason, bool hideAdminName) {
   local NexgenClient target;
   local NexgenABMClient xClient;
-  local string args;
+  local string args, adminName;
 
   // Preliminary checks.
-	if (!client.hasRight(client.R_Moderate)) {
-		return;
-	}
+  if (!client.hasRight(client.R_Moderate)) {
+    return;
+  }
 
-	// Get target client.
-	target = control.getClientByNum(playerNum);
-	if (target == none) return;
+  // Get target client.
+  target = control.getClientByNum(playerNum);
+  if (target == none) return;
+  
+  adminName = client.playerName;
+  if(hideAdminName) adminName = "<hidden>";
 
-	// Warn player.
-	xClient = NexgenABMClient(target.getController(class'NexgenABMClient'.default.ctrlID));
-	xClient.reason = reason;
-	xClient.adminName = client.playerName;
-	xClient.bCurrentlyWarned = True;
-	xClient.SetTimer(1.0, true);
-  xClient.client.showPopup(string(class'NexgenABMWarnDialog'), reason, client.playerName);
+  // Warn player.
+  xClient = NexgenABMClient(target.getController(class'NexgenABMClient'.default.ctrlID));
+  xClient.reason = reason;
+  xClient.adminName = adminName;
+  xClient.bCurrentlyWarned = True;
+  xClient.SetTimer(1.0, true);
+  xClient.client.showPopup(string(class'NexgenABMWarnDialog'), reason, adminName);
 
   // Signal event.
-	class'NexgenUtil'.static.addProperty(args, "client", client.playerNum);
-	class'NexgenUtil'.static.addProperty(args, "target", target.playerNum);
-	class'NexgenUtil'.static.addProperty(args, "reason", reason);
-	control.signalEvent("player_warned", args, true);
+  class'NexgenUtil'.static.addProperty(args, "client", client.playerNum);
+  class'NexgenUtil'.static.addProperty(args, "target", target.playerNum);
+  class'NexgenUtil'.static.addProperty(args, "reason", reason);
+  control.signalEvent("player_warned", args, true);
 
-	logAdminAction("<C07>"$client.playerName$" warned"@target.playerName$".");
+  logAdminAction("<C07>"$client.playerName$" warned"@target.playerName$".", , , , , hideAdminName);
+  if(hideAdminName) logAdminAction("<C07>"$target.playerName$" has been warned.");
 }
 
-
 function readWarning(bool bRead) { bCurrentlyWarned = !bRead; }
-
-
 
 /***************************************************************************************************
  *
@@ -338,8 +359,8 @@ function readWarning(bool bRead) { bCurrentlyWarned = !bRead; }
 function SlogAdminAction(string msg, optional coerce string str1, optional coerce string str2,
                         optional coerce string str3, optional bool bNoBroadcast,
                         optional bool bServerAdminsOnly) {
-	control.logAdminAction(client, msg, client.playerName, str1, str2, str3,
-	                       client.player.playerReplicationInfo, bNoBroadcast, bServerAdminsOnly);
+  control.logAdminAction(client, msg, client.playerName, str1, str2, str3,
+                         client.player.playerReplicationInfo, bNoBroadcast, bServerAdminsOnly);
 }
 
 /***************************************************************************************************
@@ -348,19 +369,19 @@ function SlogAdminAction(string msg, optional coerce string str1, optional coerc
  *
  **************************************************************************************************/
 function string SelElem(string Str, int Elem, optional string Char) {
-	local int pos;
+  local int pos;
 
-	if(Char=="") Char=":";
+  if(Char=="") Char=":";
 
-	while(Elem>1) {
-		Str=Mid(Str, InStr(Str, Char)+1);
-		Elem--;
-	}
-	pos=InStr(Str, Char);
+  while(Elem>1) {
+    Str=Mid(Str, InStr(Str, Char)+1);
+    Elem--;
+  }
+  pos=InStr(Str, Char);
 
-	if(pos != -1) Str=Left(Str, pos);
+  if(pos != -1) Str=Left(Str, pos);
 
-	return Str;
+  return Str;
 }
 
 /***************************************************************************************************
@@ -370,22 +391,22 @@ function string SelElem(string Str, int Elem, optional string Char) {
  *
  **************************************************************************************************/
 simulated function recvStr(string str) {
-	local string cmd;
-	local string args[10];
-	local int argCount;
+  local string cmd;
+  local string args[10];
+  local int argCount;
 
-	super.recvStr(str);
+  super.recvStr(str);
 
-	// Check controller role.
-	if (role != ROLE_Authority) {
-		// Commands accepted by client.
-		if(class'NexgenUtil'.static.parseCmd(str, cmd, args, argCount, CMD_ABM_PREFIX)) {
+  // Check controller role.
+  if (role != ROLE_Authority) {
+    // Commands accepted by client.
+    if(class'NexgenUtil'.static.parseCmd(str, cmd, args, argCount, CMD_ABM_PREFIX)) {
       switch (cmd) {
         case CMD_ABM_CLR:    exec_ABM_CLR(); break;
         case CMD_ABM_DELBAN: exec_ABM_DELBAN(int(args[0])); break;
       }
     }
-	} else {
+  } else {
     // Commands accepted by server.
     if(class'NexgenUtil'.static.parseCmd(str, cmd, args, argCount, CMD_ABM_PREFIX)) {
       switch (cmd) {
@@ -413,22 +434,22 @@ function removeBan(int entryNum) {
  *
  **************************************************************************************************/
 simulated function exec_ABM_DELBAN(int entryNum) {
-	local NexgenClient nclient;
-	local NexgenABMClient xClient;
-	local NexgenSharedDataContainer container;
-	local int index;
-	
-	if(!client.hasRight(client.R_BanOperator)) return;
-	
+  local NexgenClient nclient;
+  local NexgenABMClient xClient;
+  local NexgenSharedDataContainer container;
+  local int index;
+  
+  if(!client.hasRight(client.R_BanOperator)) return;
+  
   // Server Side Call
   if (role == ROLE_Authority) {
   
     // Get the data container.
     NexgenABMConfig(xControl.xConf).removeBan(entryNum, true);
   
-	  for (nclient = xControl.control.clientList; nclient != none; nclient = nclient.nextClient) {
-		  xClient = NexgenABMClient(xControl.getXClient(nclient));
-   	  if (xClient != none && xClient.bInitialSyncComplete && xClient.client.hasRight(client.R_BanOperator)) {
+    for (nclient = xControl.control.clientList; nclient != none; nclient = nclient.nextClient) {
+      xClient = NexgenABMClient(xControl.getXClient(nclient));
+      if (xClient != none && xClient.bInitialSyncComplete && xClient.client.hasRight(client.R_BanOperator)) {
         container = xClient.dataSyncMgr.getDataContainer(class'NexgenABMBanListDC'.default.containerID);
         if(container == none || NexgenABMBanListDC(container) == none) return;
         xClient.sendStr(xClient.CMD_ABM_PREFIX @ xClient.CMD_ABM_CLR);
@@ -443,15 +464,15 @@ simulated function exec_ABM_DELBAN(int entryNum) {
     container = dataSyncMgr.getDataContainer(class'NexgenABMBanListDC'.default.containerID);
     if(container == none) return;
 
-	  // Signal event to client controllers.
-	  for (index = 0; index < client.clientCtrlCount; index++) {
-	  	if (NexgenExtendedClientController(client.clientCtrl[index]) != none) {
-	  		NexgenExtendedClientController(client.clientCtrl[index]).dataContainerAvailable(container);
-	  	}
-  	}
+    // Signal event to client controllers.
+    for (index = 0; index < client.clientCtrlCount; index++) {
+      if (NexgenExtendedClientController(client.clientCtrl[index]) != none) {
+        NexgenExtendedClientController(client.clientCtrl[index]).dataContainerAvailable(container);
+      }
+    }
 
-	  // Signal event to GUI.
-  	client.mainWindow.mainPanel.dataContainerAvailable(container);
+    // Signal event to GUI.
+    client.mainWindow.mainPanel.dataContainerAvailable(container);
   }
 }
 
@@ -491,36 +512,36 @@ simulated function exec_ABM_CLR() {
  *
  **************************************************************************************************/
 simulated function setVar(string dataContainerID, string varName, coerce string value, optional int index) {
-	local NexgenSharedDataContainer dataContainer;
-	local string oldValue;
-	local string newValue;
+  local NexgenSharedDataContainer dataContainer;
+  local string oldValue;
+  local string newValue;
 
-	// Get data container.
-	dataContainer = dataSyncMgr.getDataContainer(dataContainerID);
+  // Get data container.
+  dataContainer = dataSyncMgr.getDataContainer(dataContainerID);
 
-	// Check if variable can be updated.
-	if (dataContainer == none || !dataContainer.mayWrite(self, varName)) return;
+  // Check if variable can be updated.
+  if (dataContainer == none || !dataContainer.mayWrite(self, varName)) return;
 
-	// Update variable value.
-	oldValue = dataContainer.getString(varName, index);
-	dataContainer.set(varName, value, index);
-	newValue = dataContainer.getString(varName, index);
+  // Update variable value.
+  oldValue = dataContainer.getString(varName, index);
+  dataContainer.set(varName, value, index);
+  newValue = dataContainer.getString(varName, index);
 
-	// Send new value to server.
-	if (newValue != oldValue) {
-		if (dataContainer.isArray(varName)) {
-			sendStr(CMD_SYNC_PREFIX @ CMD_UPDATE_VAR
-			        @ class'NexgenABMMain'.static.formatCmdArgFixed(dataContainerID)
-			        @ class'NexgenABMMain'.static.formatCmdArgFixed(varName)
-			        @ index
-			        @ class'NexgenABMMain'.static.formatCmdArgFixed(newValue));
-		} else {
-			sendStr(CMD_SYNC_PREFIX @ CMD_UPDATE_VAR
-			        @ class'NexgenABMMain'.static.formatCmdArgFixed(dataContainerID)
-			        @ class'NexgenABMMain'.static.formatCmdArgFixed(varName)
-			        @ class'NexgenABMMain'.static.formatCmdArgFixed(newValue));
-		}
-	}
+  // Send new value to server.
+  if (newValue != oldValue) {
+    if (dataContainer.isArray(varName)) {
+      sendStr(CMD_SYNC_PREFIX @ CMD_UPDATE_VAR
+              @ class'NexgenABMMain'.static.formatCmdArgFixed(dataContainerID)
+              @ class'NexgenABMMain'.static.formatCmdArgFixed(varName)
+              @ index
+              @ class'NexgenABMMain'.static.formatCmdArgFixed(newValue));
+    } else {
+      sendStr(CMD_SYNC_PREFIX @ CMD_UPDATE_VAR
+              @ class'NexgenABMMain'.static.formatCmdArgFixed(dataContainerID)
+              @ class'NexgenABMMain'.static.formatCmdArgFixed(varName)
+              @ class'NexgenABMMain'.static.formatCmdArgFixed(newValue));
+    }
+  }
 }
 
 
@@ -536,27 +557,27 @@ simulated function setVar(string dataContainerID, string varName, coerce string 
  *
  **************************************************************************************************/
 simulated function exec_UPDATE_VAR(string args[10], int argCount) {
-	local int varIndex;
-	local string varName;
-	local string varValue;
-	local NexgenSharedDataContainer container;
-	local int index;
+  local int varIndex;
+  local string varName;
+  local string varValue;
+  local NexgenSharedDataContainer container;
+  local int index;
 
-	// Get arguments.
-	if (argCount == 3) {
-		varName = args[1];
-		varValue = args[2];
-	} else if (argCount == 4) {
-		varName = args[1];
-		varIndex = int(args[2]);
-		varValue = args[3];
-	} else {
-		return;
-	}
+  // Get arguments.
+  if (argCount == 3) {
+    varName = args[1];
+    varValue = args[2];
+  } else if (argCount == 4) {
+    varName = args[1];
+    varIndex = int(args[2]);
+    varValue = args[3];
+  } else {
+    return;
+  }
 
-	if (role == ROLE_Authority) {
-  	// Server side, call fixed set() function
-  	NexgenABMMain(xControl).setFixed(args[0], varName, varValue, varIndex, self);
+  if (role == ROLE_Authority) {
+    // Server side, call fixed set() function
+    NexgenABMMain(xControl).setFixed(args[0], varName, varValue, varIndex, self);
   } else {
   
     // Client Side
@@ -564,15 +585,15 @@ simulated function exec_UPDATE_VAR(string args[10], int argCount) {
 
     container = dataSyncMgr.getDataContainer(args[0]);
 
-		// Signal event to client controllers.
-		for (index = 0; index < client.clientCtrlCount; index++) {
-			if (NexgenExtendedClientController(client.clientCtrl[index]) != none) {
-				NexgenExtendedClientController(client.clientCtrl[index]).varChanged(container, varName, varIndex);
-			}
-		}
+    // Signal event to client controllers.
+    for (index = 0; index < client.clientCtrlCount; index++) {
+      if (NexgenExtendedClientController(client.clientCtrl[index]) != none) {
+        NexgenExtendedClientController(client.clientCtrl[index]).varChanged(container, varName, varIndex);
+      }
+    }
 
-		// Signal event to GUI.
-		client.mainWindow.mainPanel.varChanged(container, varName, varIndex);
+    // Signal event to GUI.
+    client.mainWindow.mainPanel.varChanged(container, varName, varIndex);
   }
 }
 

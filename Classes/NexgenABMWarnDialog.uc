@@ -37,26 +37,26 @@ const defaultCheckboxWidth = 250;
  *
  **************************************************************************************************/
 function created() {
-	local float cy;
+  local float cy;
 
-	super.created();
+  super.created();
 
-	// Add components.
-	cy = borderSize;
-	
-	addImageBox(cy, Texture'warnIcon', 64, 64, true);
+  // Add components.
+  cy = borderSize;
+  
+  addImageBox(cy, Texture'warnIcon', 64, 64, true);
 
-	captionLabel = addLabel(cy);
-	addNewLine(cy);
-	reasonLabel = addLabel(cy);
-	reasonLabel2 = addLabel(cy);
-	addNewLine(cy);
-	addNewLine(cy);
-	addNewLine(cy);
-	addText(notifyInfo, cy, F_Normal, TA_Left);
-	
-	MycloseButton = addButton("Close");
-	bRead = addCheckbox("I've read and understood this warning.", 215.0,TA_Left);
+  captionLabel = addLabel(cy);
+  addNewLine(cy);
+  reasonLabel = addLabel(cy);
+  reasonLabel2 = addLabel(cy);
+  addNewLine(cy);
+  addNewLine(cy);
+  addNewLine(cy);
+  addText(notifyInfo, cy, F_Normal, TA_Left);
+  
+  MycloseButton = addButton("Close");
+  bRead = addCheckbox("I've read and understood this warning.", 215.0,TA_Left);
 }
 
 
@@ -78,20 +78,20 @@ function NexgenImageControl addImageBox(float yPos, Texture image, float width, 
   local float cx, cy, cw, ch;
   local NexgenImageControl imageBox;
 
-	// Initialze position & dimensions.
-	cx = borderSize;
-	cy = yPos;
-	cw = width;
-	ch = height;
-	yPos += ch;
-	
-	imageWidth = width;
-	
-	imageBox = NexgenImageControl(createControl(class'NexgenImageControl', cx, cy, cw, ch));
+  // Initialze position & dimensions.
+  cx = borderSize;
+  cy = yPos;
+  cw = width;
+  ch = height;
+  yPos += ch;
+  
+  imageWidth = width;
+  
+  imageBox = NexgenImageControl(createControl(class'NexgenImageControl', cx, cy, cw, ch));
   imageBox.image = image;
   imageBox.bStretch = bStretch;
 
-	return imageBox;
+  return imageBox;
 }
 
 
@@ -105,17 +105,17 @@ function NexgenImageControl addImageBox(float yPos, Texture image, float width, 
  *
  **************************************************************************************************/
 function UMenuLabelControl addLabel(out float yPos) {
-	local float cx, cy, cw, ch;
+  local float cx, cy, cw, ch;
   
   // Initialze position & dimensions.
   cx = borderSize + imageWidth + 8;
-	cy = yPos;
-	cw = winWidth - 2.0 * borderSize;
-	ch = labelHeight;
-	yPos += ch;
+  cy = yPos;
+  cw = winWidth - 2.0 * borderSize;
+  ch = labelHeight;
+  yPos += ch;
 
-	// Create label.
-	return UMenuLabelControl(createControl(class'UMenuLabelControl', cx, cy, cw, ch));
+  // Create label.
+  return UMenuLabelControl(createControl(class'UMenuLabelControl', cx, cy, cw, ch));
 }
 
 
@@ -132,20 +132,20 @@ function UMenuLabelControl addLabel(out float yPos) {
 function setContent(optional string reason, optional string adminName, optional string str3, optional string str4) {
   local int wrapPos;
 
-	captionLabel.setText("You have been warned by"@adminName);
-	captionLabel.Font = F_Bold;
-	
-	if(len(reason) < wrapTextureLen) {
-	  reasonLabel.setText(reason);
-	} else {
-	
+  captionLabel.setText("You have been warned by"@adminName);
+  captionLabel.Font = F_Bold;
+  
+  if(len(reason) < wrapTextureLen) {
+    reasonLabel.setText(reason);
+  } else {
+  
    wrapPos = getWrapPosition(reason, wrapTextureLen);
    reasonLabel.setText(left(reason, wrapPos));
    reasonLabel2.setText(mid(reason, wrapPos+1));
   }
-	reasonLabel.Font = F_Bold;
-	reasonLabel2.Font = F_Bold;
-	
+  reasonLabel.Font = F_Bold;
+  reasonLabel2.Font = F_Bold;
+  
 }
 
 /***************************************************************************************************
@@ -161,21 +161,21 @@ function setContent(optional string reason, optional string adminName, optional 
 function notify(UWindowDialogControl control, byte eventType){
   local NexgenABMClient xClient;
 
-	super.notify(control, eventType);
+  super.notify(control, eventType);
 
-	if (control == bRead && eventType == DE_Click) {
-	
-		// Get client controller.
+  if (control == bRead && eventType == DE_Click) {
+  
+    // Get client controller.
     xClient = NexgenABMClient(client.getController(class'NexgenABMClient'.default.ctrlID));
-  	
-	  xClient.readWarning(bRead.bChecked);
+    
+    xClient.readWarning(bRead.bChecked);
   }
-	
-	if (control == MycloseButton && eventType == DE_Click) {
+  
+  if (control == MycloseButton && eventType == DE_Click) {
     if(bRead.bChecked) {
-		  close();
+      close();
     }
-	}
+  }
 }
 
 
@@ -192,26 +192,26 @@ function notify(UWindowDialogControl control, byte eventType){
  *
  **************************************************************************************************/
 function UWindowCheckbox addCheckbox(string text, optional int width, optional TextAlign align) {
-	local float cx, cy, cw, ch;
-	local UWindowCheckbox checkBox;
+  local float cx, cy, cw, ch;
+  local UWindowCheckbox checkBox;
 
-	if (width > 0.0) {
-		cw = width;
-	} else {
-		cw = defaultCheckboxWidth;
-	}
-	ch = buttonHeight;
-	cx = nextButtonPos - cw;
-	cy = winHeight - buttonPanelHeight - buttonPanelBorderSize + (buttonPanelHeight - ch) / 2.0 - 3;
+  if (width > 0.0) {
+    cw = width;
+  } else {
+    cw = defaultCheckboxWidth;
+  }
+  ch = buttonHeight;
+  cx = nextButtonPos - cw;
+  cy = winHeight - buttonPanelHeight - buttonPanelBorderSize + (buttonPanelHeight - ch) / 2.0 - 3;
 
-	checkBox = UWindowCheckbox(createControl(class'UWindowCheckbox', cx, cy, cw, ch));
+  checkBox = UWindowCheckbox(createControl(class'UWindowCheckbox', cx, cy, cw, ch));
   checkBox.setText(text);
   checkBox.align = align;
   checkBox.setFont(F_Bold);
 
-	nextButtonPos -= cw + buttonSpace;
+  nextButtonPos -= cw + buttonSpace;
 
-	return checkBox;
+  return checkBox;
 }
 
 

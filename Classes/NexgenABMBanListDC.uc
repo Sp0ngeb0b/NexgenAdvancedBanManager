@@ -21,6 +21,7 @@ var string bannedMACHashes[256];           // MAC Hash(es) of the banned player.
 var string bannedHostnames[256];           // Hostnames(s) of the banned player.
 var string banReason[256];                 // Reason why the player was banned.
 var string banPeriod[256];                 // Duration string of the ban entry.
+var string bannerName[256];                // Account name of the Admin
 
 /***************************************************************************************************
  *
@@ -29,22 +30,22 @@ var string banPeriod[256];                 // Duration string of the ban entry.
  *
  **************************************************************************************************/
 function loadData() {
-	local int index;
+  local int index;
 
-	xConf = NexgenABMConfig(xControl.xConf);
+  xConf = NexgenABMConfig(xControl.xConf);
 
-	for (index = 0; index < arrayCount(bannedName); index++) {
-	  bannedName[index]      = xConf.bannedName[index];
-	  bannedIPs[index]       = xConf.bannedIPs[index];
-	  bannedIDs[index]       = xConf.bannedIDs[index];
-	  bannedHWIDs[index]     = xConf.bannedHWIDs[index];
-	  bannedMACHashes[index] = xConf.bannedMACHashes[index];
-	  bannedHostnames[index] = xConf.bannedHostnames[index];
-	  banReason[index]       = xConf.banReason[index];
-	  banPeriod[index]       = xConf.banPeriod[index];
+  for (index = 0; index < arrayCount(bannedName); index++) {
+    bannedName[index]      = xConf.bannedName[index];
+    bannedIPs[index]       = xConf.bannedIPs[index];
+    bannedIDs[index]       = xConf.bannedIDs[index];
+    bannedHWIDs[index]     = xConf.bannedHWIDs[index];
+    bannedMACHashes[index] = xConf.bannedMACHashes[index];
+    bannedHostnames[index] = xConf.bannedHostnames[index];
+    banReason[index]       = xConf.banReason[index];
+    banPeriod[index]       = xConf.banPeriod[index];
+    bannerName[index]      = xConf.bannerName[index];
   }
 }
-
 
 /***************************************************************************************************
  *
@@ -53,10 +54,8 @@ function loadData() {
  *
  **************************************************************************************************/
 function saveData() {
-	xConf.saveConfig();
+  xConf.saveConfig();
 }
-
-
 
 /***************************************************************************************************
  *
@@ -80,8 +79,8 @@ function initRemoteClient(NexgenExtendedClientController xClient) {
  *
  **************************************************************************************************/
 function set(string varName, coerce string value, optional int index) {
-	switch (varName) {
-		case "bannedName":       bannedName[index]      = value; if (xConf != none) { xConf.bannedName[index]      = bannedName[index];      } break;
+  switch (varName) {
+    case "bannedName":       bannedName[index]      = value; if (xConf != none) { xConf.bannedName[index]      = bannedName[index];      } break;
     case "bannedIPs":        bannedIPs[index]       = value; if (xConf != none) { xConf.bannedIPs[index]       = bannedIPs[index];       } break;
     case "bannedIDs":        bannedIDs[index]       = value; if (xConf != none) { xConf.bannedIDs[index]       = bannedIDs[index];       } break;
     case "bannedHWIDs":      bannedHWIDs[index]     = value; if (xConf != none) { xConf.bannedHWIDs[index]     = bannedHWIDs[index];     } break;
@@ -89,9 +88,9 @@ function set(string varName, coerce string value, optional int index) {
     case "bannedHostnames":  bannedHostnames[index] = value; if (xConf != none) { xConf.bannedHostnames[index] = bannedHostnames[index]; } break;
     case "banReason":        banReason[index]       = value; if (xConf != none) { xConf.banReason[index]       = banReason[index];       } break;
     case "banPeriod":        banPeriod[index]       = value; if (xConf != none) { xConf.banPeriod[index]       = banPeriod[index];       } break;
+    case "bannerName":       bannerName[index]      = value; if (xConf != none) { xConf.bannerName[index]      = bannerName[index];      } break;
   }
 }
-
 
 /***************************************************************************************************
  *
@@ -108,7 +107,6 @@ function bool mayRead(NexgenExtendedClientController xClient, string varName) {
   return xClient.client.hasRight(xClient.client.R_BanOperator);
 }
 
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Checks whether the specified client is allowed to change the variable value.
@@ -123,7 +121,6 @@ function bool mayWrite(NexgenExtendedClientController xClient, string varName) {
   return xClient.client.hasRight(xClient.client.R_BanOperator);
 }
 
-
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Checks whether the specified client is allowed to save the data in this container.
@@ -134,7 +131,7 @@ function bool mayWrite(NexgenExtendedClientController xClient, string varName) {
  *
  **************************************************************************************************/
 function bool maySaveData(NexgenExtendedClientController xClient) {
-	return xClient.client.hasRight(xClient.client.R_BanOperator);
+  return xClient.client.hasRight(xClient.client.R_BanOperator);
 }
 
 /***************************************************************************************************
@@ -148,18 +145,18 @@ function bool maySaveData(NexgenExtendedClientController xClient) {
  *
  **************************************************************************************************/
 function string getString(string varName, optional int index) {
-	switch (varName) {
-		case "bannedName":          return bannedName[index];
-		case "bannedIPs":           return bannedIPs[index];
-		case "bannedIDs":           return bannedIDs[index];
-		case "bannedHWIDs":         return bannedHWIDs[index];
-		case "bannedMACHashes":     return bannedMACHashes[index];
+  switch (varName) {
+    case "bannedName":          return bannedName[index];
+    case "bannedIPs":           return bannedIPs[index];
+    case "bannedIDs":           return bannedIDs[index];
+    case "bannedHWIDs":         return bannedHWIDs[index];
+    case "bannedMACHashes":     return bannedMACHashes[index];
     case "bannedHostnames":     return bannedHostnames[index];
-  	case "banReason":           return banReason[index];
-		case "banPeriod":           return banPeriod[index];
-	}
+    case "banReason":           return banReason[index];
+    case "banPeriod":           return banPeriod[index];
+    case "bannerName":          return bannerName[index];
+  }
 }
-
 
 /***************************************************************************************************
  *
@@ -169,7 +166,7 @@ function string getString(string varName, optional int index) {
  *
  **************************************************************************************************/
 function int getVarCount() {
-	return 8;
+  return 9;
 }
 
 
@@ -184,19 +181,18 @@ function int getVarCount() {
  *
  **************************************************************************************************/
 function string getVarName(int varIndex) {
-	switch (varIndex) {
-		case 0:  return "bannedName";
-		case 1:  return "bannedIPs";
-		case 2:  return "bannedIDs";
-		case 3:  return "bannedHWIDs";
-		case 4:  return "bannedMACHashes";
-		case 5:  return "bannedHostnames";
-		case 6:  return "banReason";
-		case 7:  return "banPeriod";
-	}
+  switch (varIndex) {
+    case 0:  return "bannedName";
+    case 1:  return "bannedIPs";
+    case 2:  return "bannedIDs";
+    case 3:  return "bannedHWIDs";
+    case 4:  return "bannedMACHashes";
+    case 5:  return "bannedHostnames";
+    case 6:  return "banReason";
+    case 7:  return "banPeriod";
+    case 8:  return "bannerName";
+  }
 }
-
-
 
 /***************************************************************************************************
  *
@@ -208,18 +204,18 @@ function string getVarName(int varIndex) {
  *
  **************************************************************************************************/
 function byte getVarType(string varName) {
-	switch (varName) {
-		case "bannedName":       return DT_STRING;
-		case "bannedIPs":        return DT_STRING;
-		case "bannedIDs":        return DT_STRING;
-		case "bannedHWIDs":      return DT_STRING;
-		case "bannedMACHashes":  return DT_STRING;
-		case "bannedHostnames":  return DT_STRING;
-		case "banReason":        return DT_STRING;
-		case "banPeriod":        return DT_STRING;
-	}
+  switch (varName) {
+    case "bannedName":       return DT_STRING;
+    case "bannedIPs":        return DT_STRING;
+    case "bannedIDs":        return DT_STRING;
+    case "bannedHWIDs":      return DT_STRING;
+    case "bannedMACHashes":  return DT_STRING;
+    case "bannedHostnames":  return DT_STRING;
+    case "banReason":        return DT_STRING;
+    case "banPeriod":        return DT_STRING;
+    case "bannerName":       return DT_STRING;
+  }
 }
-
 
 /***************************************************************************************************
  *
@@ -231,19 +227,19 @@ function byte getVarType(string varName) {
  *
  **************************************************************************************************/
 function int getArraySize(string varName) {
-	switch (varName) {
-		case "bannedName":         return arrayCount(bannedName);
-		case "bannedIPs":          return arrayCount(bannedIPs);
-		case "bannedIDs":          return arrayCount(bannedIDs);
-		case "bannedHWIDs":        return arrayCount(bannedHWIDs);
-		case "bannedMACHashes":    return arrayCount(bannedMACHashes);
-		case "bannedHostnames":    return arrayCount(bannedHostnames);
-		case "banReason":          return arrayCount(banReason);
-		case "banPeriod":          return arrayCount(banPeriod);
-		default:				           return 0;
-	}
+  switch (varName) {
+    case "bannedName":         return arrayCount(bannedName);
+    case "bannedIPs":          return arrayCount(bannedIPs);
+    case "bannedIDs":          return arrayCount(bannedIDs);
+    case "bannedHWIDs":        return arrayCount(bannedHWIDs);
+    case "bannedMACHashes":    return arrayCount(bannedMACHashes);
+    case "bannedHostnames":    return arrayCount(bannedHostnames);
+    case "banReason":          return arrayCount(banReason);
+    case "banPeriod":          return arrayCount(banPeriod);
+    case "bannerName":         return arrayCount(bannerName);
+    default:                   return 0;
+  }
 }
-
 
 /***************************************************************************************************
  *
@@ -255,21 +251,21 @@ function int getArraySize(string varName) {
  *
  **************************************************************************************************/
 function bool isArray(string varName) {
-	switch (varName) {
-		case "bannedName":
-		case "bannedIPs":
-		case "bannedIDs":
-		case "bannedHWIDs":
-		case "bannedMACHashes":
-		case "bannedHostnames":
-		case "banReason":
-		case "banPeriod":
-			return true;
-		default:
-			return false;
-	}
+  switch (varName) {
+    case "bannedName":
+    case "bannedIPs":
+    case "bannedIDs":
+    case "bannedHWIDs":
+    case "bannedMACHashes":
+    case "bannedHostnames":
+    case "banReason":
+    case "banPeriod":
+    case "bannerName":
+      return true;
+    default:
+      return false;
+  }
 }
-
 
 /***************************************************************************************************
  *
@@ -279,26 +275,24 @@ function bool isArray(string varName) {
 function clearData() {
   local int index;
 
-	for (index = 0; index < arrayCount(bannedName); index++) {
-	  bannedName[index]      = "";
-	  bannedIPs[index]       = "";
-	  bannedIDs[index]       = "";
-	  bannedHWIDs[index]     = "";
-	  bannedMACHashes[index] = "";
-	  bannedHostnames[index] = "";
-	  banReason[index]       = "";
-	  banPeriod[index]       = "";
+  for (index = 0; index < arrayCount(bannedName); index++) {
+    bannedName[index]      = "";
+    bannedIPs[index]       = "";
+    bannedIDs[index]       = "";
+    bannedHWIDs[index]     = "";
+    bannedMACHashes[index] = "";
+    bannedHostnames[index] = "";
+    banReason[index]       = "";
+    banPeriod[index]       = "";
+    bannerName[index]      = "";
   }
-
 }
-
 
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Default properties block.
  *
  **************************************************************************************************/
-
 defaultproperties
 {
      containerID="NexgenABM_banList"
