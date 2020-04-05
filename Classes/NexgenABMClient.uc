@@ -47,7 +47,7 @@ replication {
     accountName;
 
   reliable if (role == ROLE_SimulatedProxy) // Replicate to server...
-    removeBan, SlogAdminAction, banPlayer, warnPlayer, readWarning;
+    removeBan, SlogAdminAction, kickPlayer, banPlayer, warnPlayer, readWarning;
 }
 
 /***************************************************************************************************
@@ -182,6 +182,50 @@ function Timer() {
   }
 }
 
+/***************************************************************************************************
+ *
+ *  $DESCRIPTION  Kicks the specified player from the server.
+ *  $PARAM        playerNum     The player code of the player the player that is to be kicked.
+ *  $PARAM        reason        Description of why the player was kicked.
+ *  $PARAM        hideAdminName Whether to hide the performing admin.
+ *
+ **************************************************************************************************/
+function kickPlayer(int playerNum, string reason, bool hideAdminName) {
+	local NexgenClient target;
+	local string args;
+  local string popupPeriodDesc;
+
+	// Preliminary checks.
+	if (!client.hasRight(client.R_Moderate)) {
+		return;
+	}
+	
+	// Get target client.
+	target = control.getClientByNum(playerNum);
+	if (target == none) return;
+	
+	// Check if player can kick/ban players that have an account on the server.
+	if (target.bHasAccount && !client.hasRight(client.R_BanAccounts)) {
+		client.showMsg(control.lng.noBanAccountRightMsg);
+		return;
+	}
+	
+	// Kick player.
+  popupPeriodDesc = "-";
+  if(!hideAdminName) popupPeriodDesc = popupPeriodDesc$" (kicked by "$accountName$")";
+	target.showPopup("NexgenJustBannedDialog", reason, popupPeriodDesc);
+	target.player.destroy();
+	
+	// Announce event.
+  logAdminAction(xControl.control.lng.adminKickPlayerMsg, target.playerName, , , , hideAdminName);
+  if(hideAdminName) logAdminAction("<C07>"$target.playerName$" has been kicked from the server.");
+  	
+	// Signal event.
+	class'NexgenUtil'.static.addProperty(args, "client", client.playerNum);
+	class'NexgenUtil'.static.addProperty(args, "target", target.playerNum);
+	class'NexgenUtil'.static.addProperty(args, "reason", reason);
+	control.signalEvent("player_kicked", args, true);
+}
 
 /***************************************************************************************************
  *
@@ -193,6 +237,7 @@ function Timer() {
  *                               forever.
  *  $PARAM        banPeriodArgs  Optional argument for the ban period type.
  *  $PARAM        reason         Description of why the player was banned.
+ *  $PARAM        hideAdminName  Whether to hide the performing admin.
  *
  **************************************************************************************************/
 function banPlayer(int playerNum, byte banPeriodType, int banPeriodArgs, string reason, bool hideAdminName) {
@@ -296,15 +341,15 @@ function banPlayer(int playerNum, byte banPeriodType, int banPeriodArgs, string 
   class'NexgenUtil'.static.addProperty(args, "period", banPeriodDesc);
   class'NexgenUtil'.static.addProperty(args, "reason", reason);
   class'NexgenUtil'.static.addProperty(args, "ban_index", entryNum);
-  class'NexgenUtil'.static.addProperty(args, "banner_name", accountName);
   xControl.control.signalEvent("player_banned", args, true);
 }
 
 /***************************************************************************************************
  *
  *  $DESCRIPTION  Warn a specified player.
- *  $PARAM        playerNum The playernum of the selected player
- *  $PARAM        reason The warn reason.
+ *  $PARAM        playerNum     The playernum of the selected player
+ *  $PARAM        reason        The warn reason.
+ *  $PARAM        hideAdminName Whether to hide the performing admin.
  *
  **************************************************************************************************/
 function warnPlayer(int playerNum, string reason, bool hideAdminName) {

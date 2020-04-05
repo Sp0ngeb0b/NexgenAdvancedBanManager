@@ -16,6 +16,7 @@ var NexgenABMClient xClient;
 var UWindowEditControl warnInp;
 var UWindowSmallButton warnButton;
 var UWindowCheckBox hideNameInp;
+var UWindowSmallButton myKickButton;
 
 /***************************************************************************************************
  *
@@ -75,7 +76,7 @@ function setContent() {
   banReasonInp = p.addEditBox();
   warnButton = p.addButton("Warn");
   p.splitRegionV(96, defaultComponentDist);
-  kickButton = p.addButton(client.lng.kickPlayerTxt);
+  myKickButton = p.addButton(client.lng.kickPlayerTxt);
   p.splitRegionV(96, defaultComponentDist);
   banButton = p.addButton(client.lng.banPlayerTxt);
   p.splitRegionV(96, defaultComponentDist);
@@ -110,7 +111,7 @@ function setContent() {
   setNameButton.register(self);
 
   warnButton.register(self);
-  kickButton.register(self);
+  myKickButton.register(self);
   banButton.register(self);
   showMsgButton.register(self);
   banForeverInp.register(self);
@@ -132,8 +133,25 @@ function setContent() {
  *
  **************************************************************************************************/
 function playerSelected() {
-  
-  super.playerSelected();
+	local NexgenPlayerList item;
+	
+	item = NexgenPlayerList(playerList.selectedItem);
+	
+	muteToggleButton.bDisabled = (item == none);
+	setNameButton.bDisabled = (item == none);
+	myKickButton.bDisabled = (item == none);
+	banButton.bDisabled = (item == none || !client.hasRight(client.R_BanOperator));
+	copyIPAddressButton.bDisabled = (item == none);
+	copyClientIDButton.bDisabled = (item == none);
+	if (item == none) {
+		playerNameInp.setValue("");
+		ipAddressLabel.setText("");
+		clientIDLabel.setText("");
+	} else {
+		playerNameInp.setValue(item.pName);
+		ipAddressLabel.setText(item.pIPAddress);
+		clientIDLabel.setText(item.pClientID);
+	}
 
   warnButton.bDisabled = (NexgenPlayerList(playerList.selectedItem) == none);
 }
@@ -178,6 +196,11 @@ function notify(UWindowDialogControl control, byte eventType) {
     else {
       xClient.warnPlayer(NexgenPlayerList(playerList.selectedItem).pNum, class'NexgenUtil'.static.trim(warnInp.getValue()), hideNameInp.bChecked);
     }
+  }
+  
+  if (control == myKickButton && !myKickButton.bDisabled && eventType == DE_Click) {
+			xClient.kickPlayer(NexgenPlayerList(playerList.selectedItem).pNum,
+				                 class'NexgenUtil'.static.trim(banReasonInp.getValue()), hideNameInp.bChecked);
   }
 }
 
