@@ -1,16 +1,21 @@
 /*##################################################################################################
 ##
-##  Nexgen Advanced Ban Manager version 1.03
-##  Copyright (C) 2013 Patrick "Sp0ngeb0b" Peltzer
+##  Nexgen Advanced Ban Manager version 2.00
+##  Copyright (C) 2020 Patrick "Sp0ngeb0b" Peltzer
 ##
 ##  This program is free software; you can redistribute and/or modify
 ##  it under the terms of the Open Unreal Mod License version 1.1.
 ##
-##  Contact: spongebobut@yahoo.com | www.unrealriders.de
+##  Contact: spongebobut@yahoo.com | www.unrealriders.eu
 ##
 ##################################################################################################*/
 /*##################################################################################################
 ##  Changelog:
+##
+##  Version 2.00:
+##  [Removed] ACE features since they are now included in NexgenACEExt
+##  [Added]   Account name of admin banning is now displayed in the popup and saved for the ban entry
+##            Option for admins to not display their names when warning/kicking/banning
 ##
 ##  Version 1.03:
 ##  [Removed] Bypass detection  
@@ -676,7 +681,6 @@ static function string formatCmdArgFixed(coerce string arg) {
  *  $DESCRIPTION  Default properties block.
  *
  **************************************************************************************************/
-
 defaultproperties
 {
      versionNum=200
