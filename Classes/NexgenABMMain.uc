@@ -1,6 +1,6 @@
 /*##################################################################################################
 ##
-##  Nexgen Advanced Ban Manager version 2.00
+##  Nexgen Advanced Ban Manager version 2.01
 ##  Copyright (C) 2020 Patrick "Sp0ngeb0b" Peltzer
 ##
 ##  This program is free software; you can redistribute and/or modify
@@ -269,7 +269,7 @@ function banPlayer(NexgenABMClient xClient) {
   control.nscLog("Client Hostname"@xClient.playerHostname);
 
   xClient.client.showPopup("NexgenBannedDialog", xClient.banReason, xClient.banPeriod, "", "");
-  control.disconnectClient(xClient.client);
+  xClient.client.player.destroy();
   control.nscLog(control.lng.format(control.lng.loginRejectedMsg, control.lng.bannedMsg));
 }
 
@@ -683,11 +683,11 @@ static function string formatCmdArgFixed(coerce string arg) {
  **************************************************************************************************/
 defaultproperties
 {
-     versionNum=200
+     versionNum=201
      extConfigClass=Class'NexgenABMConfigExt'
      sysConfigClass=Class'NexgenABMConfigSys'
      clientControllerClass=Class'NexgenABMClient'
      pluginName="Nexgen Advanced Ban Manager"
      pluginAuthor="Sp0ngeb0b"
-     pluginVersion="2.00"
+     pluginVersion="2.01"
 }
