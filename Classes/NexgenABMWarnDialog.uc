@@ -129,7 +129,8 @@ function UMenuLabelControl addLabel(out float yPos) {
  *  $OVERRIDE
  *
  **************************************************************************************************/
-function setContent(optional string reason, optional string adminName, optional string str3, optional string str4) {
+function setContent(optional string reason, optional string adminName, optional string str3, optional string str4,
+                    optional string str5, optional string str6) {
   local int wrapPos;
 
   captionLabel.setText("You have been warned by"@adminName);

@@ -212,8 +212,8 @@ function kickPlayer(int playerNum, string reason, bool hideAdminName) {
 	
 	// Kick player.
   popupPeriodDesc = "-";
-  if(!hideAdminName) popupPeriodDesc = popupPeriodDesc$" (kicked by "$accountName$")";
-	target.showPopup("NexgenJustBannedDialog", reason, popupPeriodDesc);
+  if(!hideAdminName) target.showPopup("NexgenJustBannedDialog", reason, popupPeriodDesc, accountName);
+  else               target.showPopup("NexgenJustBannedDialog", reason, popupPeriodDesc);
 	target.player.destroy();
 	
 	// Announce event.
@@ -284,8 +284,8 @@ function banPlayer(int playerNum, byte banPeriodType, int banPeriodArgs, string 
 
   // Kick player from the server.
   popupPeriodDesc = banPeriodDesc;
-  if(!hideAdminName) popupPeriodDesc = popupPeriodDesc$" (banned by "$accountName$")";
-  ntarget.showPopup("NexgenJustBannedDialog", reason, popupPeriodDesc);
+  if(!hideAdminName) ntarget.showPopup("NexgenJustBannedDialog", reason, popupPeriodDesc, accountName);
+  else               ntarget.showPopup("NexgenJustBannedDialog", reason, popupPeriodDesc);
   ntarget.player.destroy();
 
   // Announce event.

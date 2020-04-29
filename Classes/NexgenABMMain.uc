@@ -101,7 +101,7 @@ function createSharedDataContainers() {
  *
  **************************************************************************************************/
 function bool checkLogin(NexgenClient client, out name rejectType, out string reason,
-                    out string popupWindowClass, out string popupArgs[4]) {
+                    out string popupWindowClass, out string popupArgs[6]) {
   local NexgenABMClient xClient;
 
   xClient = NexgenABMClient(getXClient(client));
@@ -689,5 +689,5 @@ defaultproperties
      clientControllerClass=Class'NexgenABMClient'
      pluginName="Nexgen Advanced Ban Manager"
      pluginAuthor="Sp0ngeb0b"
-     pluginVersion="2.00"
+     pluginVersion="2.00N"
 }

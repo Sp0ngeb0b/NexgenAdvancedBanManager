@@ -150,6 +150,7 @@ function copyOldBans() {
 
     // Copy old ban entry
     bannedName[index] = xControl.control.sConf.bannedName[index];
+    bannerName[index] = xControl.control.sConf.bannerName[index];
     bannedIPs[index] = xControl.control.sConf.bannedIPs[index];
     bannedIDs[index] = xControl.control.sConf.bannedIDs[index];
     banReason[index] = xControl.control.sConf.banReason[index];
@@ -157,6 +158,7 @@ function copyOldBans() {
 
     // Delete entry
     xControl.control.sConf.bannedName[index] = "";
+    xControl.control.sConf.bannerName[index] = "";
     xControl.control.sConf.bannedIPs[index] = "";
     xControl.control.sConf.bannedIDs[index] = "";
     xControl.control.sConf.banReason[index] = "";
