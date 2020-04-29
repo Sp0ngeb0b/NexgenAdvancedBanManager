@@ -1,6 +1,6 @@
 /*##################################################################################################
 ##
-##  Nexgen Advanced Ban Manager version 2.00
+##  Nexgen Advanced Ban Manager version 2.01
 ##  Copyright (C) 2020 Patrick "Sp0ngeb0b" Peltzer
 ##
 ##  This program is free software; you can redistribute and/or modify
@@ -27,6 +27,7 @@ var string banReason;               // Ban entry reason of this client (if banne
 var string banPeriod;               // Ban entry period of this client (if banned)
 var int hostnameTries;              // Amount of Hostname detection tries (every second)
 var string accountName;             // Replicated to the client side
+var bool bHostnameSignaled;         // Whether the hostname of the player was signaled to Main
 
 // Warning variables
 var bool bCurrentlyWarned;          // Is this client currently warned?
@@ -135,7 +136,7 @@ function Timer() {
   local NexgenClientCore ncc;
   
   // Deactivate Timer if no longer needed
-  if(!bCurrentlyWarned && (playerHostname != "" || NexgenABMMain(xControl).ipToCountry == none)) {
+  if(!bCurrentlyWarned && bHostnameSignaled ) {
     SetTimer(0.0, false);
     return;
   }
@@ -152,7 +153,6 @@ function Timer() {
     // Timeout detected, disable ipToCountry for the whole game
     if (hostnameTries > NexgenABMMain(xControl).HostnameTimeout) {
       NexgenABMMain(xControl).ipToCountry = none;
-      NexgenABMMain(xControl).hostnameReceived(self);
       return;
     }
     
@@ -172,13 +172,16 @@ function Timer() {
       // Invalid response, deactivate ipToCountry for rest of the game
       if(Left(dataBack, 1) == "!" || Host == "") {
         NexgenABMMain(xControl).ipToCountry = none;
-        NexgenABMMain(xControl).hostnameReceived(self);
         return;
       }
 
       playerHostname = Host;
-      NexgenABMMain(xControl).hostnameReceived(self);
     }
+  }
+  
+  if( (NexgenABMMain(xControl).ipToCountry == none || playerHostname != "") && !bHostnameSignaled && client.loginComplete) {
+    bHostnameSignaled = true;
+    NexgenABMMain(xControl).hostnameReceived(self);
   }
 }
 
@@ -448,14 +451,7 @@ simulated function recvStr(string str) {
     if(class'NexgenUtil'.static.parseCmd(str, cmd, args, argCount, CMD_ABM_PREFIX)) {
       switch (cmd) {
         case CMD_ABM_CLR:    exec_ABM_CLR(); break;
-        case CMD_ABM_DELBAN: exec_ABM_DELBAN(int(args[0])); break;
-      }
-    }
-  } else {
-    // Commands accepted by server.
-    if(class'NexgenUtil'.static.parseCmd(str, cmd, args, argCount, CMD_ABM_PREFIX)) {
-      switch (cmd) {
-        case CMD_ABM_DELBAN: exec_ABM_DELBAN(int(args[0])); break;
+        case CMD_ABM_DELBAN: exec_ABM_DELBAN(); break;
       }
     }
   }
@@ -468,57 +464,53 @@ simulated function recvStr(string str) {
  *
  **************************************************************************************************/
 function removeBan(int entryNum) {
-  exec_ABM_DELBAN(entryNum);
+  local NexgenClient nclient;
+  local NexgenABMClient xClient;
+  local NexgenSharedDataContainer container;
+  
+  if(!client.hasRight(client.R_BanOperator)) return;
+  
+  // Update server side config
+  NexgenABMConfig(xControl.xConf).removeBan(entryNum, true);
+
+  // Reinit all ban operators' data
+  for (nclient = xControl.control.clientList; nclient != none; nclient = nclient.nextClient) {
+    xClient = NexgenABMClient(xControl.getXClient(nclient));
+    if (xClient != none && xClient.bInitialSyncComplete && xClient.client.hasRight(client.R_BanOperator)) {
+      container = xClient.dataSyncMgr.getDataContainer(class'NexgenABMBanListDC'.default.containerID);
+      if(container == none || NexgenABMBanListDC(container) == none) return;
+      xClient.sendStr(xClient.CMD_ABM_PREFIX @ xClient.CMD_ABM_CLR);
+      container.loadData();
+      NexgenABMBanListDC(container).reInitRemoteClient(xClient);
+      xClient.sendStr(xClient.CMD_ABM_PREFIX @ xClient.CMD_ABM_DELBAN);
+    }
+  }
 }
 
 /***************************************************************************************************
  *
- *  $DESCRIPTION  Executes a exec_ABM_DELBAN command.
- *  $PARAM        args      The arguments given for the command.
- *  $PARAM        argCount  Number of arguments available for the command.
+ *  $DESCRIPTION  Called on the client signaling that the reinitiatization of its ban list DC is 
+ *                complete.
  *
  **************************************************************************************************/
-simulated function exec_ABM_DELBAN(int entryNum) {
-  local NexgenClient nclient;
-  local NexgenABMClient xClient;
+simulated function exec_ABM_DELBAN() {
   local NexgenSharedDataContainer container;
   local int index;
   
   if(!client.hasRight(client.R_BanOperator)) return;
-  
-  // Server Side Call
-  if (role == ROLE_Authority) {
-  
-    // Get the data container.
-    NexgenABMConfig(xControl.xConf).removeBan(entryNum, true);
-  
-    for (nclient = xControl.control.clientList; nclient != none; nclient = nclient.nextClient) {
-      xClient = NexgenABMClient(xControl.getXClient(nclient));
-      if (xClient != none && xClient.bInitialSyncComplete && xClient.client.hasRight(client.R_BanOperator)) {
-        container = xClient.dataSyncMgr.getDataContainer(class'NexgenABMBanListDC'.default.containerID);
-        if(container == none || NexgenABMBanListDC(container) == none) return;
-        xClient.sendStr(xClient.CMD_ABM_PREFIX @ xClient.CMD_ABM_CLR);
-        NexgenABMBanListDC(container).clearData();
-        container.loadData();
-        container.initRemoteClient(self);
-        xClient.sendStr(xClient.CMD_ABM_PREFIX @ xClient.CMD_ABM_DELBAN);
-      }
-    }
-  } else {
-    // Client side call
-    container = dataSyncMgr.getDataContainer(class'NexgenABMBanListDC'.default.containerID);
-    if(container == none) return;
 
-    // Signal event to client controllers.
-    for (index = 0; index < client.clientCtrlCount; index++) {
-      if (NexgenExtendedClientController(client.clientCtrl[index]) != none) {
-        NexgenExtendedClientController(client.clientCtrl[index]).dataContainerAvailable(container);
-      }
-    }
+  container = dataSyncMgr.getDataContainer(class'NexgenABMBanListDC'.default.containerID);
+  if(container == none) return;
 
-    // Signal event to GUI.
-    client.mainWindow.mainPanel.dataContainerAvailable(container);
+  // Signal event to client controllers.
+  for (index = 0; index < client.clientCtrlCount; index++) {
+    if (NexgenExtendedClientController(client.clientCtrl[index]) != none) {
+      NexgenExtendedClientController(client.clientCtrl[index]).dataContainerAvailable(container);
+    }
   }
+
+  // Signal event to GUI.
+  client.mainWindow.mainPanel.dataContainerAvailable(container);
 }
 
 /***************************************************************************************************
@@ -529,12 +521,10 @@ simulated function exec_ABM_DELBAN(int entryNum) {
  *
  **************************************************************************************************/
 simulated function exec_ABM_CLR() {
-  local NexgenSharedDataContainer container;
-
   if(!client.hasRight(client.R_BanOperator)) return;
   
-  container = dataSyncMgr.getDataContainer(class'NexgenABMBanListDC'.default.containerID);
-  if(container != none && NexgenABMBanListDC(container) != none) NexgenABMBanListDC(container).clearData();
+  dataContainer = dataSyncMgr.getDataContainer(class'NexgenABMBanListDC'.default.containerID);
+  if(dataContainer != none) NexgenABMBanListDC(dataContainer).clearData();
   
   if(banPanel != none) {
     if(banPanel.BanData != none) {

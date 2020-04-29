@@ -1,6 +1,6 @@
 /*##################################################################################################
 ##
-##  Nexgen Advanced Ban Manager version 2.00
+##  Nexgen Advanced Ban Manager version 2.01
 ##  Copyright (C) 2020 Patrick "Sp0ngeb0b" Peltzer
 ##
 ##  This program is free software; you can redistribute and/or modify
@@ -12,6 +12,11 @@
 /*##################################################################################################
 ##  Changelog:
 ##
+##  Version 2.01:
+##  [Fixed]   Ban method post checkLogin now correctly let Nexgen remove the client handlers   
+##  [Fixed]   Ban Control GUI not useable after deleting a ban entry
+##  [Changed] Hostname signaling and processing now delayed till client's initial login is completed
+##
 ##  Version 2.00:
 ##  [Removed] ACE features since they are now included in NexgenACEExt
 ##  [Added]   Account name of admin banning is now displayed in the popup and saved for the ban entry
@@ -22,13 +27,13 @@
 ##  [Changed] Spectators are supported if feature is enabled in ACE
 ##
 ##  Version 1.02:
-##  [Fix]     RequestInfo and TakeScreenshot buttons mistakenly disabled for green, gold and teamless
+##  [Fixed]   RequestInfo and TakeScreenshot buttons mistakenly disabled for green, gold and teamless
 ##            players
-##  [Fix]     Critical bug in use with Bots
+##  [Fixed]   Critical bug in use with Bots
 ##  [Added]   Feature to detect ACE bypass attempts and kick the respective player
 ##
 ##  Hotfix  1.01:
-##  [Fix]     Sometimes players were erroneously considered as banned
+##  [Fixed]   Sometimes players were erroneously considered as banned
 ##
 ##################################################################################################*/
 class NexgenABMMain extends NexgenExtendedPlugin;
@@ -269,7 +274,7 @@ function banPlayer(NexgenABMClient xClient) {
   control.nscLog("Client Hostname"@xClient.playerHostname);
 
   xClient.client.showPopup("NexgenBannedDialog", xClient.banReason, xClient.banPeriod, "", "");
-  control.disconnectClient(xClient.client);
+  xClient.client.player.destroy();
   control.nscLog(control.lng.format(control.lng.loginRejectedMsg, control.lng.bannedMsg));
 }
 
@@ -683,11 +688,11 @@ static function string formatCmdArgFixed(coerce string arg) {
  **************************************************************************************************/
 defaultproperties
 {
-     versionNum=200
+     versionNum=201
      extConfigClass=Class'NexgenABMConfigExt'
      sysConfigClass=Class'NexgenABMConfigSys'
      clientControllerClass=Class'NexgenABMClient'
      pluginName="Nexgen Advanced Ban Manager"
      pluginAuthor="Sp0ngeb0b"
-     pluginVersion="2.00N"
+     pluginVersion="2.01N"
 }

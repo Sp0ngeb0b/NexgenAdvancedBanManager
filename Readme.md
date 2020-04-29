@@ -7,9 +7,9 @@
 ####################################################################################################
 ##
 ##  Nexgen Advanced Ban Manager
-##  [NexgenABM200 - For Nexgen 112]
+##  [NexgenABM201 - For Nexgen 112]
 ##
-##  Version: 2.00
+##  Version: 2.01
 ##  Release Date: April 2020
 ##  Author: Patrick "Sp0ngeb0b" Peltzer
 ##  Contact: spongebobut@yahoo.com  -  www.unrealriders.eu
@@ -79,19 +79,19 @@ Note: This plugin replaces NexgenWarn!
  
  3. Deinstall any existing version of NexgenWarn.
 
- 4. Copy the NexgenABM200.u file to the system folder of your UT
+ 4. Copy the NexgenABM201.u file to the system folder of your UT
     server.
 
- 5. If your server is using redirect upload the NexgenABM200.u.uz file
+ 5. If your server is using redirect upload the NexgenABM201.u.uz file
     to the redirect server.
 
  6. Open your servers configuration file and add the following server package:
 
-      ServerPackages=NexgenABM200
+      ServerPackages=NexgenABM201
 
     Also add the following server actor:
 
-      ServerActors=NexgenABM200.NexgenABMMain
+      ServerActors=NexgenABM201.NexgenABMMain
 
     Note that the actor must be added AFTER the Nexgen controller server actor
     (ServerActors=Nexgen112.NexgenActor).
@@ -109,27 +109,27 @@ Note: This plugin replaces NexgenWarn!
 ####################################################################################################
  1. Make sure your server has been shut down.
 
- 2. Delete NexgenABM10x.u (where x is the previous version of the
-    Plugin) from your servers system folder and upload NexgenABM200.u
+ 2. Delete NexgenABMxxx.u (where xxx is the previous version of the
+    Plugin) from your servers system folder and upload NexgenABM201.u
     to the same folder.
 
  3. If your server is using redirect you may wish to delete
-    NexgenABM10x.u.uz if it is no longer used by other servers.
-    Also upload NexgenABM200.u.uz to the redirect server.
+    NexgenABMxxx.u.uz if it is no longer used by other servers.
+    Also upload NexgenABM201.u.uz to the redirect server.
 
  4. Open NexgenABM.ini.
 
- 5. Do a search and replace "NexgenABM10x." with "NexgenABM200." (without the quotes).
-    Again the x denotes the previous version of NexgenABM that was installed on your server.
+ 5. Do a search and replace "NexgenABMxxx." with "NexgenABM201." (without the quotes).
+    Again xxx denotes the previous version of NexgenABM that was installed on your server.
 
  6. Save the changes and close the file.
 
  7. Goto the [Engine.GameEngine] section and edit the server package and
     server actor lines for Nexgen. They should look like this:
 
-      ServerActors=NexgenABM200.NexgenABMMain
+      ServerActors=NexgenABM201.NexgenABMMain
 
-      ServerPackages=NexgenABM200
+      ServerPackages=NexgenABM201
 
  8. Save changes to the servers configuration file and close it.
 
@@ -153,7 +153,7 @@ Note: This plugin replaces NexgenWarn!
 - To my admin team from the 'ComboGib >GRAPPLE< Server <//UrS//>', for their intensive testing, bug-
   finding and feedback, and ofcourse for simply beeing the best team to have. Big thanks guys! :)
   
-- aZ-Boy for bug reporting
+- aZ-Boy and Krisuh for bug reporting
 
 ####################################################################################################
 ##
@@ -170,8 +170,8 @@ Nonetheless I would like you to follow these limitations:
 - If you recompile or edit this plugin, please leave the credits part of the readme intact, as well
   as the author line in the panel. Also note that you have to pay attention to the naming of your
   version to avoid missmatches. All official updates will be made ONLY by me and therefore counting up
-  version numbers are forbidden (e.g. NexgenABM201). Instead, add an unique suffix 
-  (e.g. NexgenABM201_X).
+  version numbers are forbidden (e.g. NexgenABM202). Instead, add an unique suffix 
+  (e.g. NexgenABM202_X).
   
 While working with Nexgen's 1.12 TCP functions, I encountered a far-reaching bug in Nexgen's core
 file which will prevent empty strings in an array to be transfered correctly. A detailed explanation
@@ -216,6 +216,11 @@ A: Generally, if you want a version of this plugin for a custom Nexgen version, 
 ##  8. Changelog
 ##
 ####################################################################################################
+- Version 2.01:
+  [Fixed]   Ban method post checkLogin now correctly let Nexgen remove the client handlers   
+  [Fixed]   Ban Control GUI not useable after deleting a ban entry
+  [Changed] Hostname signaling and processing now delayed till client's initial login is completed
+
 - Version 2.00:
   [Removed] ACE features since they are now included in NexgenACEExt
   [Added]   Account name of admin banning is now displayed in the popup and saved for the ban entry

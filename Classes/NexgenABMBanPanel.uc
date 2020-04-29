@@ -1,6 +1,6 @@
 /*##################################################################################################
 ##
-##  Nexgen Advanced Ban Manager version 2.00
+##  Nexgen Advanced Ban Manager version 2.01
 ##  Copyright (C) 2020 Patrick "Sp0ngeb0b" Peltzer
 ##
 ##  This program is free software; you can redistribute and/or modify
@@ -904,10 +904,6 @@ function deleteBan(int entryNum) {
   
   // Save playername
   playername = BanData.getString("bannedName", entryNum);
-  
-  // temporary disable further input
-  BanData = none;
-  loadBanList();
 
   // Remove ban.
   xClient.removeBan(entryNum);
@@ -917,7 +913,6 @@ function deleteBan(int entryNum) {
   
   // Log action.
   xClient.SlogAdminAction("<C07>Ban entry for player"@playername$" has been removed by %1.", client.playerName, , , true, false);
-
 }
 
 /***************************************************************************************************

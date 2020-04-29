@@ -1,6 +1,6 @@
 /*##################################################################################################
 ##
-##  Nexgen Advanced Ban Manager version 2.00
+##  Nexgen Advanced Ban Manager version 2.01
 ##  Copyright (C) 2020 Patrick "Sp0ngeb0b" Peltzer
 ##
 ##  This program is free software; you can redistribute and/or modify
