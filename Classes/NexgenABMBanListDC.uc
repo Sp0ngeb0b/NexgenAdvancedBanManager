@@ -49,6 +49,54 @@ function loadData() {
 
 /***************************************************************************************************
  *
+ *  $DESCRIPTION  Sends the initial shared data setup commands to the specified client.
+ *  $PARAM        xClient  The client controller which should be setup.
+ *  $REQUIRE      xClient != none
+ *
+ **************************************************************************************************/
+function reInitRemoteClient(NexgenExtendedClientController xClient) {
+	local int varIndex;
+	local int varCount;
+	local string currentVar;
+	local byte currentVarType;
+	local string currentVarValue;
+	local int varArrayIndex;
+	local int varArrayCount;
+	
+	// Send variable initialization commands.
+	varCount = getVarCount();
+	for (varIndex = 0; varIndex < varCount; varIndex++) {
+		// Retrieve variable information.
+		currentVar = getVarName(varIndex);
+		currentVarType = getVarType(currentVar);
+		
+		// Check if the variable is an array.
+		if (isArray(currentVar)) {
+			// Variable is array, send whole array contents.
+			varArrayCount = getArraySize(currentVar);
+			for (varArrayIndex = 0; varArrayIndex < varArrayCount; varArrayIndex++) {
+				currentVarValue = getString(currentVar, varArrayIndex);
+				if (!isTypeDefaultValue(currentVarType, currentVarValue)) {
+					xClient.sendStr(xClient.CMD_SYNC_PREFIX @ xClient.CMD_INIT_VAR
+					                @ class'NexgenUtil'.static.formatCmdArg(currentVar)
+					                @ varArrayIndex
+					                @ class'NexgenUtil'.static.formatCmdArg(currentVarValue));
+				}
+			}
+		} else {
+			// Variable contains a single value, send it.
+			currentVarValue = getString(currentVar);
+			if (!isTypeDefaultValue(currentVarType, currentVarValue)) {
+				xClient.sendStr(xClient.CMD_SYNC_PREFIX @ xClient.CMD_INIT_VAR
+				                @ class'NexgenUtil'.static.formatCmdArg(currentVar)
+				                @ class'NexgenUtil'.static.formatCmdArg(currentVarValue));
+			}
+		}
+	}
+}
+
+/***************************************************************************************************
+ *
  *  $DESCRIPTION  Saves the data store in this shared data container.
  *  $OVERRIDE
  *
