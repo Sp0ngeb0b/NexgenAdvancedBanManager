@@ -7,7 +7,7 @@
 ####################################################################################################
 ##
 ##  Nexgen Advanced Ban Manager
-##  [NexgenABM201 - For Nexgen 112]
+##  [NexgenABM201N - For Nexgen 112N]
 ##
 ##  Version: 2.01
 ##  Release Date: April 2020
@@ -60,7 +60,7 @@ erase the old data in Nexgen.ini).
 ##  2. Requirements
 ##
 ####################################################################################################
-Nexgen 1.12
+Nexgen 1.12N
 
 Optional:
 NexgenACEExt (any version, allows banning by HW id or MAC hash)
@@ -79,22 +79,22 @@ Note: This plugin replaces NexgenWarn!
  
  3. Deinstall any existing version of NexgenWarn.
 
- 4. Copy the NexgenABM201.u file to the system folder of your UT
+ 4. Copy the NexgenABM201N.u file to the system folder of your UT
     server.
 
- 5. If your server is using redirect upload the NexgenABM201.u.uz file
+ 5. If your server is using redirect upload the NexgenABM201N.u.uz file
     to the redirect server.
 
  6. Open your servers configuration file and add the following server package:
 
-      ServerPackages=NexgenABM201
+      ServerPackages=NexgenABM201N
 
     Also add the following server actor:
 
-      ServerActors=NexgenABM201.NexgenABMMain
+      ServerActors=NexgenABM201N.NexgenABMMain
 
     Note that the actor must be added AFTER the Nexgen controller server actor
-    (ServerActors=Nexgen112.NexgenActor).
+    (ServerActors=Nexgen112N.NexgenActor).
     
     Also note that if you want to use the Hostname banning feature, the plugin's ServerActor must be
     loaded AFTER the IpToCountry.LinkActor ServerActor!
@@ -110,16 +110,16 @@ Note: This plugin replaces NexgenWarn!
  1. Make sure your server has been shut down.
 
  2. Delete NexgenABMxxx.u (where xxx is the previous version of the
-    Plugin) from your servers system folder and upload NexgenABM201.u
+    Plugin) from your servers system folder and upload NexgenABM201N.u
     to the same folder.
 
  3. If your server is using redirect you may wish to delete
     NexgenABMxxx.u.uz if it is no longer used by other servers.
-    Also upload NexgenABM201.u.uz to the redirect server.
+    Also upload NexgenABM201N.u.uz to the redirect server.
 
  4. Open NexgenABM.ini.
 
- 5. Do a search and replace "NexgenABMxxx." with "NexgenABM201." (without the quotes).
+ 5. Do a search and replace "NexgenABMxxx." with "NexgenABM201N." (without the quotes).
     Again xxx denotes the previous version of NexgenABM that was installed on your server.
 
  6. Save the changes and close the file.
@@ -127,9 +127,9 @@ Note: This plugin replaces NexgenWarn!
  7. Goto the [Engine.GameEngine] section and edit the server package and
     server actor lines for Nexgen. They should look like this:
 
-      ServerActors=NexgenABM201.NexgenABMMain
+      ServerActors=NexgenABM201N.NexgenABMMain
 
-      ServerPackages=NexgenABM201
+      ServerPackages=NexgenABM201N
 
  8. Save changes to the servers configuration file and close it.
 
